@@ -1,4 +1,4 @@
--- PENDENTE: aguarda aprovação do Thiago antes de aplicar.
+-- Aprovada pelo Thiago e aplicada em 2026-10-07.
 -- Quem pode entrar: o dono convida pelo e-mail; ao criar a conta, a pessoa vira membro.
 create table public.convites (
   email      text primary key check (email = lower(email)),

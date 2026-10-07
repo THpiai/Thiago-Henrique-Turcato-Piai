@@ -27,6 +27,6 @@ O teste `e2e` usa Playwright (`PLAYWRIGHT_MODULE` aponta para o pacote se não e
 ## Banco
 
 `supabase/migrations/` tem o esquema completo, com regras de acesso (RLS) por perfil.
-`0003_convites.sql` **ainda não foi aplicada**: aguarda a aprovação do Thiago.
+Quem entra: o dono cadastra o e-mail em `convites`; ao criar a conta no app, a pessoa vira membro com aquele perfil (`0003_convites.sql`).
 
 Variáveis opcionais em `.env` (veja `.env.example`); sem elas o app usa o projeto Flor da Mata.
