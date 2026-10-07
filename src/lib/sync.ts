@@ -107,8 +107,12 @@ export async function receber(cli: Cliente): Promise<boolean> {
   }
   const saldos = await cli.from('v_estoque').select('insumo_id,nome,unidade,estoque_minimo,saldo,custo_medio')
   if (saldos.error) return false
+  // Clima por hora (ontem até a previsão): preenche a condição de aplicação sem sinal.
+  const clima = await cli.from('clima_horario').select('sede_id,hora,temperatura_c,umidade_pct,vento_kmh,chuva_mm')
+    .gte('hora', new Date(Date.now() - 2 * 864e5).toISOString())
+  if (clima.error) return false
 
-  await db.transaction('rw', [...baixados.map(([t]) => db.table(t)), db.saldos], async () => {
+  await db.transaction('rw', [...baixados.map(([t]) => db.table(t)), db.saldos, db.clima], async () => {
     for (const [t, linhas] of baixados) {
       const tabela = db.table(t)
       const pendentes = await tabela.filter((l) => l._pendente === 1).toArray()
@@ -118,6 +122,8 @@ export async function receber(cli: Cliente): Promise<boolean> {
     }
     await db.saldos.clear()
     await db.saldos.bulkPut(saldos.data as never[])
+    await db.clima.clear()
+    await db.clima.bulkPut(clima.data as never[])
   })
   avisar()
   return true

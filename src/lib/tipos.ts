@@ -39,8 +39,10 @@ export type EstoqueMov = Local & {
   id: string; data: string; autor_id: string; insumo_id: string; movimento: string; quantidade: number
   valor_total?: number | null; nota_fiscal?: string | null; fornecedor?: string | null; observacao?: string | null
 }
+export type Sede = { id: string; nome: string; latitude: number; longitude: number }
+export type ClimaHora = { sede_id: string; hora: string; temperatura_c?: number | null; umidade_pct?: number | null; vento_kmh?: number | null; chuva_mm?: number | null }
 export type Chuva = Local & {
-  id: string; data: string; talhao_id?: string | null; milimetros: number; fonte: string; autor_id?: string | null; observacao?: string | null
+  id: string; data: string; talhao_id?: string | null; sede_id?: string | null; milimetros: number; fonte: string; autor_id?: string | null; observacao?: string | null
 }
 export type Saldo = {
   insumo_id: string; nome: string; unidade: string; estoque_minimo?: number | null; saldo: number; custo_medio?: number | null

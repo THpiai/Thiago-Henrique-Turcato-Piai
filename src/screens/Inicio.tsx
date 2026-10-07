@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
-import { useDados, useSessao } from '../lib/hooks'
-import { abaixoDoMinimo, resumoTalhao, type Resumo } from '../lib/painel'
+import { useDados, useLive, useSessao } from '../lib/hooks'
+import { db } from '../lib/db'
+import { abaixoDoMinimo, chuvaPeriodo, climaNaHora, janelasAplicacao, resumoTalhao, type Dados, type Resumo } from '../lib/painel'
 import { COR_CULTURA } from '../lib/opcoes'
-import { fmtData, fmtN } from '../lib/formato'
+import { fmtData, fmtDataHora, fmtN } from '../lib/formato'
 import { Aviso } from '../components/ui'
 
 export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; ir: (tela: string) => void }) {
@@ -15,7 +16,7 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
   const emCampo = resumos.filter((r) => r.ciclo?.status === 'Em andamento')
   const indicadas = resumos.flatMap((r) => r.alertas.filter((a) => a.status === 'Aplicação indicada').map((a) => ({ a, r })))
   const baixos = d.saldos.filter(abaixoDoMinimo)
-  const chuva7 = resumos.length ? Math.max(...resumos.map((r) => r.chuva7)) : 0
+  const chuva7 = resumos.length ? Math.max(...resumos.map((r) => r.chuva7)) : Math.max(0, ...d.sedes.map((s) => chuvaPeriodo(null, d.chuva, 7, s.id)))
 
   return (
     <div className="tela">
@@ -54,6 +55,8 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
           </ul>
         </section>
       )}
+
+      <ClimaSedes d={d} />
 
       <section>
         <h2>Talhões</h2>
@@ -95,5 +98,40 @@ function CartaoTalhao({ r, abrir }: { r: Resumo; abrir: () => void }) {
       </div>
       {r.ultimaOperacao && <small className="mudo">Última: {r.ultimaOperacao.tipo} em {fmtData(r.ultimaOperacao.data_hora)}</small>}
     </button>
+  )
+}
+
+const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+const diaSemana = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')
+
+/** Chuva estimada e janela de pulverização de cada sede (Open-Meteo, atualizado 2x por dia). */
+function ClimaSedes({ d }: { d: Dados }) {
+  const clima = useLive(() => db.clima.toArray()) ?? []
+  if (!d.sedes.length) return null
+  const agora = new Date()
+  return (
+    <section>
+      <h2>Clima nas sedes</h2>
+      <div className="grade-sedes">
+        {d.sedes.map((s) => {
+          const c = climaNaHora(clima, s.id, agora)
+          const janelas = janelasAplicacao(clima, s.id, agora, 36)
+          return (
+            <div key={s.id} className="cartao sede">
+              <div className="topo"><b>{s.nome}</b>{c && <span className="mudo">agora {fmtN(c.temperatura_c, 0)} °C · {fmtN(c.umidade_pct, 0)}% · vento {fmtN(c.vento_kmh, 0)} km/h</span>}</div>
+              <div>🌧 {fmtN(chuvaPeriodo(null, d.chuva, 7, s.id), 0)} mm em 7 dias · {fmtN(chuvaPeriodo(null, d.chuva, 30, s.id), 0)} mm em 30 dias</div>
+              {clima.some((x) => x.sede_id === s.id) && (
+                <small>
+                  Janela para pulverizar (36 h): {janelas.length
+                    ? janelas.slice(0, 3).map((j) => `${diaSemana(j.inicio)} ${hora(j.inicio)}–${hora(new Date(new Date(j.fim).getTime() + 3600e3).toISOString())}`).join(' · ')
+                    : 'nenhuma dentro da faixa recomendada'}
+                </small>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <small className="mudo">Estimativa Open-Meteo. Leitura de pluviômetro do talhão substitui a estimativa no painel.{clima[0] ? ` Atualizado até ${fmtDataHora(clima.reduce((m, x) => (x.hora > m ? x.hora : m), clima[0].hora))} (previsão).` : ''}</small>
+    </section>
   )
 }

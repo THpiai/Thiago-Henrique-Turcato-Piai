@@ -25,6 +25,7 @@ export function useDados(): Dados | undefined {
     campo: await db.campo.toArray(),
     chuva: await db.chuva.toArray(),
     saldos: await db.saldos.toArray(),
+    sedes: await db.sedes.toArray(),
   }))
 }
 

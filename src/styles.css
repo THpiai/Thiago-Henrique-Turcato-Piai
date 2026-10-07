@@ -160,3 +160,6 @@ legend { font-weight: 700; padding: 0 0.3rem; }
 .login .marca h1 { margin: 0.4rem 0 0; color: var(--verde); }
 .login .cartao { width: 100%; max-width: 400px; display: flex; flex-direction: column; }
 .login .link { margin-top: 0.8rem; }
+.grade-sedes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.6rem; }
+.grade-sedes .cartao { margin: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.sede .topo { flex-wrap: wrap; }

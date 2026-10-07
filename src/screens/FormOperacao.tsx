@@ -3,7 +3,7 @@ import { db } from '../lib/db'
 import { useLive, useSessao, useGps } from '../lib/hooks'
 import { TIPOS_OPERACAO } from '../lib/opcoes'
 import { agoraLocal, fmtN, num, uuid } from '../lib/formato'
-import { cicloAtual } from '../lib/painel'
+import { cicloAtual, climaNaHora, sedeDoTalhao } from '../lib/painel'
 import { salvarOperacao } from '../lib/sync'
 import { Aviso, Escolha, Rotulo, SeletorTalhao } from '../components/ui'
 import type { OperacaoProduto } from '../lib/tipos'
@@ -17,6 +17,8 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
   const insumos = useLive(() => db.insumos.orderBy('nome').toArray()) ?? []
   const talhoes = useLive(() => db.talhoes.toArray()) ?? []
   const ciclos = useLive(() => db.ciclos.toArray()) ?? []
+  const sedes = useLive(() => db.sedes.toArray()) ?? []
+  const clima = useLive(() => db.clima.toArray()) ?? []
   const [talhaoId, setTalhaoId] = useState('')
   const [tipo, setTipo] = useState<string>('')
   const [quando, setQuando] = useState(agoraLocal())
@@ -35,6 +37,14 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
   const talhao = talhoes.find((t) => t.id === talhaoId)
   const areaNum = num(area) ?? (talhao ? Number(talhao.area_ha) : null)
   const pulv = tipo === 'Pulverização'
+  const sede = talhao ? sedeDoTalhao(talhao, sedes) : undefined
+  const estimado = pulv ? climaNaHora(clima, sede?.id, new Date(quando)) : undefined
+  const preencher = () => {
+    if (!estimado) return
+    if (!temp && estimado.temperatura_c != null) setTemp(String(estimado.temperatura_c).replace('.', ','))
+    if (!umid && estimado.umidade_pct != null) setUmid(String(Math.round(estimado.umidade_pct)))
+    if (!vento && estimado.vento_kmh != null) setVento(String(estimado.vento_kmh).replace('.', ','))
+  }
   const condicaoRuim = pulv && ((num(vento) ?? 0) > 10 || (num(umid) ?? 100) < 55 || (num(temp) ?? 0) > 30)
 
   function mudaTalhao(id: string) {
@@ -116,6 +126,11 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
             <Rotulo t="Umidade %"><input inputMode="decimal" value={umid} onChange={(e) => setUmid(e.target.value)} /></Rotulo>
             <Rotulo t="Vento km/h"><input inputMode="decimal" value={vento} onChange={(e) => setVento(e.target.value)} /></Rotulo>
           </div>
+          {estimado && (!temp || !umid || !vento) && (
+            <button type="button" className="secundario" onClick={preencher}>
+              Usar clima estimado da sede {sede?.nome}: {estimado.temperatura_c} °C · {Math.round(Number(estimado.umidade_pct))}% · {estimado.vento_kmh} km/h
+            </button>
+          )}
           {condicaoRuim && <Aviso tipo="alerta">Condição fora da faixa recomendada (vento até 10 km/h, umidade acima de 55%, temperatura até 30 °C).</Aviso>}
           <Rotulo t="Receituário"><input value={receita} onChange={(e) => setReceita(e.target.value)} /></Rotulo>
         </fieldset>

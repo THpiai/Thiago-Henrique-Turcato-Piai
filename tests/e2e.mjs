@@ -32,7 +32,13 @@ const banco = {
   operacoes: [], operacao_produtos: [],
   campo: [{ id: 'm1', data_hora: hoje.toISOString(), autor_id: eu.id, talhao_id: 't2', tipo: 'Praga', alvo: 'Percevejo-marrom', nivel_encontrado: 2.5, unidade_nivel: 'insetos/pano', nivel_de_controle: 2, urgencia: 'Alta', status: 'Aplicação indicada' }],
   estoque_mov: [],
-  chuva: [{ id: 'r1', data: iso(2), talhao_id: 't1', milimetros: 18, fonte: 'Pluviômetro' }, { id: 'r2', data: iso(2), talhao_id: null, milimetros: 14, fonte: 'Estimativa automática' }],
+  chuva: [{ id: 'r1', data: iso(2), talhao_id: 't1', milimetros: 18, fonte: 'Pluviômetro' }, { id: 'r2', data: iso(2), talhao_id: null, sede_id: 's1', milimetros: 14, fonte: 'Estimativa automática' }, { id: 'r3', data: iso(3), talhao_id: null, sede_id: 's2', milimetros: 22, fonte: 'Estimativa automática' }],
+  sedes: [{ id: 's1', nome: 'Flor da Mata', latitude: -17.797, longitude: -50.895 }, { id: 's2', nome: 'Carlim', latitude: -17.95, longitude: -50.85 }],
+  clima_horario: Array.from({ length: 48 }, (_, i) => {
+    const h = new Date(Math.floor(Date.now() / 3600e3) * 3600e3 + (i - 6) * 3600e3)
+    const hl = (h.getUTCHours() + 21) % 24 // hora de Brasília
+    return { sede_id: i % 2 ? 's1' : 's1', hora: h.toISOString(), temperatura_c: 18 + 10 * Math.sin(((hl - 9) / 24) * 2 * Math.PI), umidade_pct: 85 - 35 * Math.sin(((hl - 9) / 24) * 2 * Math.PI), vento_kmh: 4 + (hl % 7), chuva_mm: 0 }
+  }),
   v_estoque: [
     { insumo_id: 'i1', nome: 'Fungicida X', unidade: 'L', estoque_minimo: 50, saldo: 120, custo_medio: 95 },
     { insumo_id: 'i2', nome: 'Inseticida Y', unidade: 'L', estoque_minimo: 20, saldo: 12, custo_medio: 140 },
@@ -93,7 +99,9 @@ try {
   await espera('Olá, Thiago')
   await espera('T01 Sede')
   await espera('Tudo enviado')
-  ok(true, 'login e painel carregados')
+  await espera('Clima nas sedes')
+  await espera('Janela para pulverizar')
+  ok(true, 'login e painel carregados, com clima das sedes')
   await foto('1-inicio')
 
   // Service worker pronto para abrir sem sinal.
@@ -116,6 +124,8 @@ try {
   await pagina.getByLabel('Dose por hectare').fill('0,6')
   await espera('Total: 49,5 L')
   await pagina.getByLabel('Alvo', { exact: true }).fill('Ferrugem-asiática')
+  await pagina.getByRole('button', { name: /Usar clima estimado da sede Flor da Mata/ }).click()
+  ok((await pagina.getByLabel('Umidade %').inputValue()) !== '', 'condição da aplicação preenchida pelo clima da sede')
   await pagina.getByLabel('Vento km/h').fill('14')
   await espera('fora da faixa recomendada')
   await foto('2-operacao-sem-sinal')
