@@ -13,7 +13,7 @@ export function Login() {
     e.preventDefault()
     setOcupado(true); setMsg(null)
     const cred = { email: email.trim().toLowerCase(), password: senha }
-    const r = modo === 'entrar' ? await supabase.auth.signInWithPassword(cred) : await supabase.auth.signUp(cred)
+    const r = modo === 'entrar' ? await supabase.auth.signInWithPassword(cred) : await supabase.auth.signUp({ ...cred, options: { emailRedirectTo: location.origin + location.pathname } })
     setOcupado(false)
     if (r.error) {
       setMsg({ t: r.error.message.includes('Invalid login') ? 'E-mail ou senha não conferem.' : r.error.message, tipo: 'alerta' })
