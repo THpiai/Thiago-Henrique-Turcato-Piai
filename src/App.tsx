@@ -1,0 +1,130 @@
+import { useCallback, useEffect, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { supabase } from './lib/supabase'
+import { db, gravarMeta, lerMeta } from './lib/db'
+import { iniciarSync, receber } from './lib/sync'
+import { SessaoCtx, type Sessao } from './lib/hooks'
+import type { Pessoa } from './lib/tipos'
+import { BarraSync } from './components/ui'
+import { AguardandoLiberacao, Login } from './screens/Login'
+import { Inicio } from './screens/Inicio'
+import { TalhaoDetalhe } from './screens/Talhao'
+import { Registrar } from './screens/Registrar'
+import { FormOperacao } from './screens/FormOperacao'
+import { FormCampo } from './screens/FormCampo'
+import { FormChuva } from './screens/FormChuva'
+import { Estoque } from './screens/Estoque'
+import { Mapa } from './screens/Mapa'
+import { Equipe, Fila, FormCiclo, Insumos, Mais, Safras } from './screens/Mais'
+
+/** Rota no endereço (#/tela/a/b) para o botão Voltar do celular funcionar. */
+function useRota(): [string[], (r: string) => void] {
+  const ler = () => location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
+  const [r, setR] = useState(ler)
+  useEffect(() => {
+    const f = () => { setR(ler()); window.scrollTo(0, 0) }
+    window.addEventListener('hashchange', f)
+    return () => window.removeEventListener('hashchange', f)
+  }, [])
+  return [r.length ? r : ['inicio'], useCallback((x: string) => { location.hash = '#/' + x }, [])]
+}
+
+type Fase = { f: 'carregando' } | { f: 'login' } | { f: 'aguardando'; email: string } | { f: 'dentro'; eu: Pessoa }
+
+export function App() {
+  const [fase, setFase] = useState<Fase>({ f: 'carregando' })
+
+  const resolver = useCallback(async (s: Session | null) => {
+    const guardado = await lerMeta<Pessoa>('eu')
+    if (!s) {
+      // Sem sinal e sessão vencida: deixa continuar registrando com o perfil guardado.
+      if (guardado && !navigator.onLine) return setFase({ f: 'dentro', eu: guardado })
+      return setFase({ f: 'login' })
+    }
+    if (guardado?.id === s.user.id && !navigator.onLine) return setFase({ f: 'dentro', eu: guardado })
+    const { data, error } = await supabase.from('pessoas').select('*').eq('id', s.user.id).maybeSingle()
+    if (error) return setFase(guardado?.id === s.user.id ? { f: 'dentro', eu: guardado } : { f: 'login' })
+    if (!data || !data.ativo) return setFase({ f: 'aguardando', email: s.user.email ?? '' })
+    await gravarMeta('eu', data)
+    setFase({ f: 'dentro', eu: data as Pessoa })
+  }, [])
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => resolver(data.session))
+    const { data } = supabase.auth.onAuthStateChange((ev, s) => { if (ev === 'SIGNED_IN' || ev === 'SIGNED_OUT') void resolver(s) })
+    return () => data.subscription.unsubscribe()
+  }, [resolver])
+
+  const sair = useCallback(async () => {
+    if (await db.fila.count()) {
+      alert('Ainda há registros guardados no celular. Conecte-se para enviar antes de sair.')
+      return
+    }
+    await supabase.auth.signOut()
+    await db.meta.delete('eu')
+    setFase({ f: 'login' })
+  }, [])
+
+  if (fase.f === 'carregando') return <p className="vazio">Carregando…</p>
+  if (fase.f === 'login') return <Login />
+  if (fase.f === 'aguardando') return <AguardandoLiberacao email={fase.email} sair={() => void sair()} />
+  const sessao: Sessao = {
+    eu: fase.eu, gestor: fase.eu.perfil !== 'operador', dono: fase.eu.perfil === 'dono', sair: () => void sair(),
+  }
+  return <SessaoCtx.Provider value={sessao}><Casca /></SessaoCtx.Provider>
+}
+
+function Casca() {
+  const [rota, ir] = useRota()
+  useEffect(() => {
+    void receber(supabase)
+    return iniciarSync(supabase)
+  }, [])
+  const voltar = () => history.back()
+  const abrirTalhao = useCallback((id: string) => ir('talhao/' + id), [ir])
+  const editarCiclo = (t: string, c?: string) => ir(`ciclo/${t}${c ? '/' + c : ''}`)
+  const [tela, a, b] = rota
+
+  const conteudo = (() => {
+    switch (tela) {
+      case 'talhao': return <TalhaoDetalhe id={a} voltar={voltar} editarCiclo={editarCiclo} />
+      case 'registrar': return <Registrar ir={ir} />
+      case 'operacao': return <FormOperacao pronto={() => ir('inicio')} />
+      case 'campo': return <FormCampo pronto={() => ir('inicio')} />
+      case 'chuva': return <FormChuva pronto={() => ir('inicio')} />
+      case 'estoque': return <Estoque />
+      case 'mapa': return <Mapa abrirTalhao={abrirTalhao} />
+      case 'mais': return <Mais ir={ir} />
+      case 'safras': return <Safras voltar={voltar} abrir={editarCiclo} />
+      case 'ciclo': return <FormCiclo key={`${a}/${b}`} talhaoId={a} cicloId={b} pronto={voltar} />
+      case 'insumos': return <Insumos voltar={voltar} />
+      case 'equipe': return <Equipe voltar={voltar} />
+      case 'fila': return <Fila voltar={voltar} />
+      default: return <Inicio abrirTalhao={abrirTalhao} ir={ir} />
+    }
+  })()
+
+  const aba = ['registrar', 'operacao', 'campo', 'chuva'].includes(tela) ? 'registrar'
+    : ['mais', 'safras', 'ciclo', 'insumos', 'equipe', 'fila'].includes(tela) ? 'mais'
+      : tela === 'talhao' ? 'inicio' : tela
+  const abas = [
+    { id: 'inicio', t: 'Início', i: '🏠' }, { id: 'mapa', t: 'Mapa', i: '🗺' },
+    { id: 'registrar', t: 'Registrar', i: '➕' }, { id: 'estoque', t: 'Estoque', i: '📦' }, { id: 'mais', t: 'Mais', i: '☰' },
+  ]
+  return (
+    <div className="app">
+      <header className="topo-app">
+        <span className="nome">Flor da Mata</span>
+        <BarraSync />
+      </header>
+      <main className={tela === 'mapa' ? 'conteudo cheio' : 'conteudo'}>{conteudo}</main>
+      <nav className="abas">
+        {abas.map((x) => (
+          <button key={x.id} className={aba === x.id ? 'on' : ''} onClick={() => ir(x.id)} aria-current={aba === x.id ? 'page' : undefined}>
+            <span aria-hidden>{x.i}</span>{x.t}
+          </button>
+        ))}
+      </nav>
+    </div>
+  )
+}
