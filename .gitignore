@@ -4,3 +4,4 @@ dev-dist
 *.local
 test-results
 tests/telas/
+*.tsbuildinfo
