@@ -40,7 +40,7 @@ export function SeletorTalhao({ valor, muda }: { valor: string; muda: (id: strin
   useEffect(() => { if (!tocado && talhaoId && !valor) muda(talhaoId) }, [talhaoId, tocado, valor, muda])
   const sugerido = talhoes.find((t) => t.id === talhaoId)
   return (
-    <Rotulo t="Talhão" dica={sugerido ? `📍 Você está no ${sugerido.nome}` : pos ? 'GPS fora dos talhões cadastrados' : erro ?? 'Procurando GPS…'}>
+    <Rotulo t="Talhão" dica={sugerido ? `Você está no ${sugerido.nome} (pelo GPS)` : pos ? 'GPS fora dos talhões cadastrados' : erro ?? 'Procurando GPS…'}>
       <select required value={valor} onChange={(e) => { setTocado(true); muda(e.target.value) }}>
         <option value="">Escolha…</option>
         {talhoes.filter((t) => t.ativo !== false).map((t) => (

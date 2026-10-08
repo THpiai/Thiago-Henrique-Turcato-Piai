@@ -63,3 +63,12 @@ export function talhaoDoPonto(p: Ponto, talhoes: TalhaoGeo[]): string | null {
   }
   return melhor
 }
+
+export function perimetroM(pts: Ponto[]): number {
+  if (pts.length < 2) return 0
+  let s = 0
+  for (let i = 0; i < pts.length; i++) if (pts.length > 2 || i < pts.length - 1) s += distanciaM(pts[i], pts[(i + 1) % pts.length])
+  return s
+}
+
+export const pontoMedio = (a: Ponto, b: Ponto): Ponto => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]

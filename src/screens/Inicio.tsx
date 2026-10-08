@@ -5,6 +5,7 @@ import { abaixoDoMinimo, chuvaPeriodo, climaNaHora, janelasAplicacao, resumoTalh
 import { COR_CULTURA } from '../lib/opcoes'
 import { fmtData, fmtDataHora, fmtN } from '../lib/formato'
 import { Aviso } from '../components/ui'
+import { Icone } from '../components/Icone'
 
 export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; ir: (tela: string) => void }) {
   const d = useDados()
@@ -21,6 +22,7 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
   return (
     <div className="tela">
       <h1 className="saudacao">Olá, {eu.nome.split(' ')[0]}</h1>
+      <p className="mudo data-hoje">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
 
       {d.talhoes.length === 0 && (
         <Aviso>
@@ -36,34 +38,39 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
         <div><b>{fmtN(chuva7, 0)} mm</b><span>chuva em 7 dias</span></div>
       </section>
 
-      {(indicadas.length > 0 || baixos.length > 0) && (
-        <section>
-          <h2>Atenção</h2>
-          <ul className="lista">
-            {indicadas.map(({ a, r }) => (
-              <li key={a.id} className="alerta" onClick={() => abrirTalhao(r.talhao.id)}>
-                <b>{r.talhao.nome}</b> · {a.alvo || a.tipo} acima do nível de controle
-                <small>{fmtN(a.nivel_encontrado, 2)} {a.unidade_nivel ?? ''} (controle {fmtN(a.nivel_de_controle, 2)}) · {fmtData(a.data_hora)}</small>
-              </li>
-            ))}
-            {baixos.map((s) => (
-              <li key={s.insumo_id} onClick={() => ir('estoque')}>
-                <b>{s.nome}</b> abaixo do mínimo
-                <small>Saldo {fmtN(Number(s.saldo), 1)} {s.unidade} · mínimo {fmtN(Number(s.estoque_minimo), 1)}</small>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <ClimaSedes d={d} />
-
-      <section>
-        <h2>Talhões</h2>
-        <div className="grade-talhoes">
-          {resumos.map((r) => <CartaoTalhao key={r.talhao.id} r={r} abrir={() => abrirTalhao(r.talhao.id)} />)}
+      <div className="layout-inicio">
+        <div>
+          <section>
+            <h2>Talhões</h2>
+            <div className="grade-talhoes">
+              {resumos.map((r) => <CartaoTalhao key={r.talhao.id} r={r} abrir={() => abrirTalhao(r.talhao.id)} />)}
+            </div>
+          </section>
         </div>
-      </section>
+        <aside>
+          {(indicadas.length > 0 || baixos.length > 0) && (
+            <section>
+              <h2>Atenção</h2>
+              <ul className="lista">
+                {indicadas.map(({ a, r }) => (
+                  <li key={a.id} className="alerta" onClick={() => abrirTalhao(r.talhao.id)}>
+                    <b>{r.talhao.nome}</b> · {a.alvo || a.tipo} acima do nível de controle
+                    <small>{fmtN(a.nivel_encontrado, 2)} {a.unidade_nivel ?? ''} (controle {fmtN(a.nivel_de_controle, 2)}) · {fmtData(a.data_hora)}</small>
+                  </li>
+                ))}
+                {baixos.map((s) => (
+                  <li key={s.insumo_id} onClick={() => ir('estoque')}>
+                    <b>{s.nome}</b> abaixo do mínimo
+                    <small>Saldo {fmtN(Number(s.saldo), 1)} {s.unidade} · mínimo {fmtN(Number(s.estoque_minimo), 1)}</small>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <ClimaSedes d={d} />
+        </aside>
+      </div>
     </div>
   )
 }
@@ -92,7 +99,7 @@ function CartaoTalhao({ r, abrir }: { r: Resumo; abrir: () => void }) {
         {r.produtividade != null && <span><b>{fmtN(r.produtividade, 1)} {c?.unidade_producao}/ha</b>{r.vsMeta != null && ` (${fmtN(r.vsMeta * 100, 0)}% da meta)`}</span>}
       </div>
       <div className="rodape">
-        <span>🌧 {fmtN(r.chuva7, 0)} mm/7d · {fmtN(r.chuva30, 0)} mm/30d</span>
+        <span className="com-icone"><Icone n="chuva" t={16} />{fmtN(r.chuva7, 0)} mm em 7 d · {fmtN(r.chuva30, 0)} em 30 d</span>
         {r.custoHa != null && <span>R$ {fmtN(r.custoHa, 0)}/ha</span>}
         {r.alertas.length > 0 && <span className={r.alertas.some((a) => a.status === 'Aplicação indicada') ? 'tag vermelho' : 'tag'}>{r.alertas.length} ocorrência(s)</span>}
       </div>
@@ -119,7 +126,7 @@ function ClimaSedes({ d }: { d: Dados }) {
           return (
             <div key={s.id} className="cartao sede">
               <div className="topo"><b>{s.nome}</b>{c && <span className="mudo">agora {fmtN(c.temperatura_c, 0)} °C · {fmtN(c.umidade_pct, 0)}% · vento {fmtN(c.vento_kmh, 0)} km/h</span>}</div>
-              <div>🌧 {fmtN(chuvaPeriodo(null, d.chuva, 7, s.id), 0)} mm em 7 dias · {fmtN(chuvaPeriodo(null, d.chuva, 30, s.id), 0)} mm em 30 dias</div>
+              <div className="com-icone"><Icone n="chuva" t={16} />{fmtN(chuvaPeriodo(null, d.chuva, 7, s.id), 0)} mm em 7 dias · {fmtN(chuvaPeriodo(null, d.chuva, 30, s.id), 0)} mm em 30 dias</div>
               {clima.some((x) => x.sede_id === s.id) && (
                 <small>
                   Janela para pulverizar (36 h): {janelas.length

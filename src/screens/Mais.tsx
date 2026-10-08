@@ -5,6 +5,7 @@ import { CULTURAS, ESTADIOS_CANA, ESTADIOS_GRAOS, STATUS_CICLO, TIPOS_INSUMO, UN
 import { fmtData, fmtDataHora, hojeISO, num, uuid } from '../lib/formato'
 import { salvar } from '../lib/sync'
 import { Aviso, Escolha, Rotulo } from '../components/ui'
+import { Icone } from '../components/Icone'
 import type { Ciclo, Insumo } from '../lib/tipos'
 
 export function Mais({ ir }: { ir: (tela: string) => void }) {
@@ -13,10 +14,10 @@ export function Mais({ ir }: { ir: (tela: string) => void }) {
     <div className="tela">
       <h1>Mais</h1>
       <div className="menu">
-        {gestor && <button onClick={() => ir('safras')}><span className="icone">🌱</span><span><b>Safras</b><small>Cultura, cultivar, plantio, estádio e colheita por talhão</small></span></button>}
-        {gestor && <button onClick={() => ir('insumos')}><span className="icone">🧪</span><span><b>Insumos</b><small>Produtos, unidade e estoque mínimo</small></span></button>}
-        <button onClick={() => ir('equipe')}><span className="icone">👥</span><span><b>Equipe</b><small>Quem usa o app</small></span></button>
-        <button onClick={() => ir('fila')}><span className="icone">📶</span><span><b>Envio</b><small>O que está guardado no celular</small></span></button>
+        {gestor && <button onClick={() => ir('safras')}><span className="icone"><Icone n="folha" t={26} /></span><span><b>Safras</b><small>Cultura, cultivar, plantio, estádio e colheita por talhão</small></span></button>}
+        {gestor && <button onClick={() => ir('insumos')}><span className="icone"><Icone n="frasco" t={26} /></span><span><b>Insumos</b><small>Produtos, unidade e estoque mínimo</small></span></button>}
+        <button onClick={() => ir('equipe')}><span className="icone"><Icone n="pessoas" t={26} /></span><span><b>Equipe</b><small>Quem usa o app</small></span></button>
+        <button onClick={() => ir('fila')}><span className="icone"><Icone n="sinal" t={26} /></span><span><b>Envio</b><small>O que está guardado no celular</small></span></button>
       </div>
       <p className="mudo">Conectado como {eu.nome} ({eu.email}) · {eu.perfil}</p>
       <button className="secundario" onClick={sair}>Sair</button>

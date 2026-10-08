@@ -3,7 +3,8 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import { db, gravarMeta, lerMeta } from './lib/db'
 import { iniciarSync, receber } from './lib/sync'
-import { SessaoCtx, type Sessao } from './lib/hooks'
+import { SessaoCtx, useSessao, type Sessao } from './lib/hooks'
+import { Icone } from './components/Icone'
 import type { Pessoa } from './lib/tipos'
 import { BarraSync } from './components/ui'
 import { AguardandoLiberacao, Login } from './screens/Login'
@@ -76,6 +77,7 @@ export function App() {
 
 function Casca() {
   const [rota, ir] = useRota()
+  const { eu, gestor } = useSessao()
   useEffect(() => {
     void receber(supabase)
     return iniciarSync(supabase)
@@ -108,23 +110,38 @@ function Casca() {
     : ['mais', 'safras', 'ciclo', 'insumos', 'equipe', 'fila'].includes(tela) ? 'mais'
       : tela === 'talhao' ? 'inicio' : tela
   const abas = [
-    { id: 'inicio', t: 'Início', i: '🏠' }, { id: 'mapa', t: 'Mapa', i: '🗺' },
-    { id: 'registrar', t: 'Registrar', i: '➕' }, { id: 'estoque', t: 'Estoque', i: '📦' }, { id: 'mais', t: 'Mais', i: '☰' },
+    { id: 'inicio', t: 'Início', i: 'inicio' }, { id: 'mapa', t: 'Mapa', i: 'mapa' },
+    { id: 'registrar', t: 'Registrar', i: 'registrar' }, { id: 'estoque', t: 'Estoque', i: 'estoque' }, { id: 'mais', t: 'Mais', i: 'mais' },
+  ]
+  // No computador a barra lateral mostra também os cadastros.
+  const extras = [
+    ...(gestor ? [{ id: 'safras', t: 'Safras', i: 'folha' }, { id: 'insumos', t: 'Insumos', i: 'frasco' }] : []),
+    { id: 'equipe', t: 'Equipe', i: 'pessoas' }, { id: 'fila', t: 'Envio', i: 'sinal' },
   ]
   return (
-    <div className="app">
+    <div className={tela === 'mapa' ? 'app com-mapa' : 'app'}>
       <header className="topo-app">
-        <span className="nome">Flor da Mata</span>
+        <span className="marca-app"><img src="./icon.svg" alt="" width={28} height={28} /><span>Flor da Mata</span></span>
         <BarraSync />
       </header>
-      <main className={tela === 'mapa' ? 'conteudo cheio' : 'conteudo'}>{conteudo}</main>
-      <nav className="abas">
+      <nav className="abas" aria-label="Principal">
+        <span className="marca-lateral"><img src="./icon.svg" alt="" width={34} height={34} /><span><b>Flor da Mata</b><small>Gestão da fazenda</small></span></span>
         {abas.map((x) => (
-          <button key={x.id} className={aba === x.id ? 'on' : ''} onClick={() => ir(x.id)} aria-current={aba === x.id ? 'page' : undefined}>
-            <span aria-hidden>{x.i}</span>{x.t}
+          <button key={x.id} className={aba === x.id && !(x.id === 'mais' && extras.some((e) => e.id === tela)) ? 'on' : ''} onClick={() => ir(x.id)} aria-current={aba === x.id ? 'page' : undefined}>
+            <Icone n={x.i} />{x.t}
           </button>
         ))}
+        <div className="secundarias">
+          <small>Cadastros</small>
+          {extras.map((x) => (
+            <button key={x.id} className={tela === x.id || (x.id === 'safras' && tela === 'ciclo') ? 'on' : ''} onClick={() => ir(x.id)}>
+              <Icone n={x.i} t={20} />{x.t}
+            </button>
+          ))}
+        </div>
+        <div className="rodape-lateral"><BarraSync /><small>{eu.nome} · {eu.perfil}</small></div>
       </nav>
+      <main className={tela === 'mapa' ? 'conteudo cheio' : 'conteudo'}>{conteudo}</main>
     </div>
   )
 }
