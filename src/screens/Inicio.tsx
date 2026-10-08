@@ -15,10 +15,12 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
 
   const areaTotal = d.talhoes.reduce((s, t) => s + Number(t.area_ha), 0)
   const emCampo = resumos.filter((r) => r.ciclo?.status === 'Em andamento')
-  const indicadas = resumos.flatMap((r) => r.alertas.filter((a) => a.status === 'Aplicação indicada').map((a) => ({ a, r })))
+  const abertos = resumos.reduce((n, r) => n + r.problemas.filter((p) => p.situacao === 'aberto').length, 0)
+  const criticos = resumos.filter((r) => r.estado.nivel === 'critico').length
   const baixos = d.saldos.filter(abaixoDoMinimo)
-  // Talhões cuja conclusão pede atenção por outro motivo além do alerta de MIP já listado.
-  const pedem = resumos.filter((r) => r.estado.pontos.some((p) => (p.nivel === 'critico' || p.nivel === 'atencao') && !/nível de controle/.test(p.texto)))
+  // Talhões com ponto de atenção agora, do crítico ao de atenção.
+  const pedem = resumos.filter((r) => (r.estado.nivel === 'critico' || r.estado.nivel === 'atencao') && r.estado.agora)
+    .sort((a, b) => Number(b.estado.nivel === 'critico') - Number(a.estado.nivel === 'critico'))
   const chuva7 = resumos.length ? Math.max(...resumos.map((r) => r.chuva7)) : Math.max(0, ...d.sedes.map((s) => chuvaPeriodo(null, d.chuva, 7, s.id)))
 
   return (
@@ -36,7 +38,7 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
       <section className="kpis">
         <div><b>{fmtN(areaTotal, 1)}</b><span>ha em {d.talhoes.length} talhões</span></div>
         <div><b>{emCampo.length}</b><span>com lavoura em campo</span></div>
-        <div className={indicadas.length ? 'alerta' : ''}><b>{indicadas.length}</b><span>aplicações indicadas</span></div>
+        <div className={criticos ? 'alerta' : ''}><b>{abertos}</b><span>problemas abertos{criticos ? ` · ${criticos} talhão(ões) crítico(s)` : ''}</span></div>
         <div><b>{fmtN(chuva7, 0)} mm</b><span>chuva em 7 dias</span></div>
       </section>
 
@@ -50,20 +52,14 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
           </section>
         </div>
         <aside>
-          {(indicadas.length > 0 || baixos.length > 0 || pedem.length > 0) && (
+          {(baixos.length > 0 || pedem.length > 0) && (
             <section>
               <h2>Atenção</h2>
               <ul className="lista">
-                {indicadas.map(({ a, r }) => (
-                  <li key={a.id} className="alerta" onClick={() => abrirTalhao(r.talhao.id)}>
-                    <b>{r.talhao.nome}</b> · {a.alvo || a.tipo} acima do nível de controle
-                    <small>{fmtN(a.nivel_encontrado, 2)} {a.unidade_nivel ?? ''} (controle {fmtN(a.nivel_de_controle, 2)}) · {fmtData(a.data_hora)}</small>
-                  </li>
-                ))}
                 {pedem.map((r) => (
                   <li key={'e' + r.talhao.id} className={r.estado.nivel === 'critico' ? 'alerta' : ''} onClick={() => abrirTalhao(r.talhao.id)}>
                     <b>{r.talhao.nome}</b> · {r.estado.titulo.toLowerCase()}
-                    <small>{r.estado.pontos.filter((p) => p.nivel === 'critico' || p.nivel === 'atencao').map((p) => p.texto).join(' ')}</small>
+                    <small>{r.estado.agora}</small>
                   </li>
                 ))}
                 {baixos.map((s) => (
@@ -103,16 +99,16 @@ function CartaoTalhao({ r, abrir }: { r: Resumo; abrir: () => void }) {
       )}
       <div className="linhas">
         {r.dap != null && <span>{r.dap} DAP</span>}
-        {r.estado.estadio && c?.status === 'Em andamento' && <span>{r.estado.estadio}{r.estado.estadioEstimado ? '*' : ''}</span>}
+        {r.estado.estadio && c?.status === 'Em andamento' && <span className={r.estado.estadioEstimado ? 'estadio estimado' : 'estadio confirmado'}>{r.estado.estadio}{r.estado.estadioEstimado ? <em> estimado</em> : ''}</span>}
         {r.diasParaColheita != null && <span>{r.diasParaColheita >= 0 ? `colheita em ${r.diasParaColheita} d` : `colheita prevista há ${-r.diasParaColheita} d`}</span>}
         {r.produtividade != null && <span><b>{fmtN(r.produtividade, 1)} {c?.unidade_producao}/ha</b>{r.vsMeta != null && ` (${fmtN(r.vsMeta * 100, 0)}% da meta)`}</span>}
       </div>
       <div className="rodape">
         <span className="com-icone"><Icone n="chuva" t={16} />{fmtN(r.chuva7, 0)} mm em 7 d · {fmtN(r.chuva30, 0)} em 30 d</span>
         {r.custoHa != null && <span>R$ {fmtN(r.custoHa, 0)}/ha</span>}
-        {r.alertas.length > 0 && <span className={r.alertas.some((a) => a.status === 'Aplicação indicada') ? 'tag vermelho' : 'tag'}>{r.alertas.length} ocorrência(s)</span>}
+        {r.problemas.length > 0 && <span className={r.cor === 'critico' ? 'tag vermelho' : 'tag'}>{r.problemas.length} problema(s)</span>}
       </div>
-      {r.ciclo && r.estado.nivel !== 'bom' && r.estado.pontos[0] && <small className={`motivo ${r.estado.pontos[0].nivel}`}>{r.estado.pontos[0].texto}</small>}
+      {r.ciclo && r.estado.nivel !== 'bom' && r.estado.agora && <small className={`motivo ${r.estado.nivel}`}>{r.estado.agora}</small>}
       {r.ultimaOperacao && <small className="mudo">Última: {r.ultimaOperacao.tipo} em {fmtData(r.ultimaOperacao.data_hora)}</small>}
     </button>
   )

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Campo, Chuva, Ciclo, ClimaHora, EstoqueMov, Insumo, Operacao, OperacaoProduto, Pessoa, Saldo, Sede, Talhao } from './tipos'
+import type { Campo, Chuva, Ciclo, ClimaHora, Estadio, EstoqueMov, FotoLocal, Insumo, Operacao, OperacaoProduto, Pessoa, Saldo, Sede, Talhao } from './tipos'
 
 /** Item da fila de envio: o que foi gravado no celular e ainda não chegou ao servidor. */
 export type ItemFila = {
@@ -14,7 +14,7 @@ export type ItemFila = {
 }
 
 export const TABELAS_CADASTRO = ['pessoas', 'sedes', 'talhoes', 'insumos', 'ciclos'] as const
-export const TABELAS_REGISTRO = ['operacoes', 'operacao_produtos', 'campo', 'estoque_mov', 'chuva'] as const
+export const TABELAS_REGISTRO = ['operacoes', 'operacao_produtos', 'campo', 'estoque_mov', 'chuva', 'estadios'] as const
 export type TabelaSync = (typeof TABELAS_CADASTRO)[number] | (typeof TABELAS_REGISTRO)[number]
 
 /** Banco local do celular (IndexedDB). Tudo funciona daqui; o servidor é sincronizado quando há sinal. */
@@ -30,6 +30,8 @@ export class BancoLocal extends Dexie {
   campo!: Table<Campo, string>
   estoque_mov!: Table<EstoqueMov, string>
   chuva!: Table<Chuva, string>
+  estadios!: Table<Estadio, string>
+  fotos!: Table<FotoLocal, string>
   saldos!: Table<Saldo, string>
   fila!: Table<ItemFila, number>
   meta!: Table<{ chave: string; valor: unknown }, string>
@@ -51,6 +53,7 @@ export class BancoLocal extends Dexie {
       meta: 'chave',
     })
     this.version(2).stores({ sedes: 'id', clima: '[sede_id+hora], sede_id' })
+    this.version(3).stores({ estadios: 'id, talhao_id, ciclo_id', fotos: 'path, enviada' })
   }
 }
 

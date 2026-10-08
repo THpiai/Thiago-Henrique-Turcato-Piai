@@ -1,4 +1,5 @@
-import type { Campo, Ciclo, Operacao, Talhao } from './tipos'
+import type { Ciclo, Estadio, Operacao, Talhao } from './tipos'
+import { corDosProblemas, gravidade, nomeProblema, ordenar, classeQueTrata, type Problema } from './problemas'
 import { precoProduto, referenciaCultura } from './mercado'
 
 export const TIPOS_COLHEITA = ['Colheita', 'Corte de cana']
@@ -9,14 +10,31 @@ const iso = (d: Date) => d.toISOString().slice(0, 10)
 /** Data local (Brasil) de um horário gravado. */
 export const diaLocal = (dataHora: string) => iso(new Date(new Date(dataHora).getTime() - 3 * 3600e3))
 
-/** Nome da safra pela cultura e data: Safra 2026/27, Safrinha 2027, Cana 2026/27 (igual ao banco). */
+/** Nome da safra pela cultura e data: Soja 2026/27, Safrinha 2027, Cana 2026/27 (igual ao banco). */
 export function nomeSafra(cultura: string, dia: string): string {
   const [a, m] = dia.split('-').map(Number)
   const par = (ini: number) => `${ini}/${String(ini + 1).slice(2)}`
   if (cultura === 'Cana-de-açúcar') return `Cana ${par(m >= 4 ? a : a - 1)}`
   if ((cultura === 'Milho' || cultura === 'Sorgo') && m <= 6) return `Safrinha ${a}`
-  return `Safra ${par(m >= 7 ? a : a - 1)}`
+  return `${cultura === 'Soja' ? 'Soja' : 'Safra'} ${par(m >= 7 ? a : a - 1)}`
 }
+
+/** A safra como conjunto: Soja AAAA/AA, Safrinha AAAA (milho e sorgo juntos) e Cana AAAA/AA, separadas. */
+export function grupoSafra(c: Pick<Ciclo, 'safra' | 'cultura'>): string {
+  if (c.cultura === 'Soja' && c.safra.startsWith('Safra ')) return 'Soja ' + c.safra.slice(6)
+  return c.safra
+}
+
+/** Safras do conjunto, as em andamento primeiro e depois as mais novas. */
+export function listaSafras(ciclos: Ciclo[]): { nome: string; ativa: boolean }[] {
+  const m = new Map<string, boolean>()
+  for (const c of ciclos) if (!c.excluido_em) m.set(grupoSafra(c), (m.get(grupoSafra(c)) ?? false) || c.status !== 'Colhido')
+  return [...m].map(([nome, ativa]) => ({ nome, ativa }))
+    .sort((a, b) => Number(b.ativa) - Number(a.ativa) || tipoSafra(a.nome) - tipoSafra(b.nome) || anoSafra(b.nome) - anoSafra(a.nome))
+}
+/** Grãos primeiro (Soja, depois Safrinha); Cana por último. */
+const tipoSafra = (n: string) => (n.startsWith('Soja') ? 0 : n.startsWith('Safrinha') ? 1 : n.startsWith('Cana') ? 3 : 2)
+const anoSafra = (n: string) => Number(n.match(/\d{4}/)?.[0] ?? 0)
 
 /** Safra que recebe as operações do talhão agora: em andamento; senão a planejada. */
 export function cicloAberto(talhaoId: string, ciclos: Ciclo[]): Ciclo | undefined {
@@ -88,6 +106,23 @@ export function estadioEstimado(c: Pick<Ciclo, 'cultura' | 'ciclo_cultivar_dias'
 
 const FASES_CRITICAS_AGUA = ['Florescimento (R1-R2)', 'Formação de grãos (R3-R5)']
 
+/** Estádio que vale para a tela: o confirmado no campo (ou anotado pelo gestor) há até 15 dias; senão o estimado. */
+export function estadioDaSafra(c: CicloVivo, dap: number | null, confirmados: Estadio[], hoje = new Date()) {
+  const ult = confirmados.filter((x) => x.ciclo_id === c.id && !x.excluido_em).sort((a, b) => b.data_hora.localeCompare(a.data_hora))[0]
+  const doGestor = c.estadio_atual && c.data_estadio ? { estadio: c.estadio_atual, data: c.data_estadio } : null
+  const campo = ult ? { estadio: ult.estadio, data: ult.data_hora.slice(0, 10), autor: ult.autor_id } : null
+  const conf = campo && (!doGestor || campo.data >= doGestor.data) ? campo : doGestor
+  const idade = conf ? Math.floor((hoje.getTime() - new Date(conf.data + 'T12:00:00').getTime()) / 864e5) : null
+  const estimado = c.status === 'Em andamento' ? estadioEstimado(c, dap) : null
+  return {
+    estimado,
+    confirmado: conf ? { ...conf, dias: idade! } : null,
+    /** O que a tela usa: confirmado recente; senão o estimado; senão o último confirmado. */
+    vale: conf && (idade! <= 15 || !estimado) ? conf.estadio : estimado,
+    valeConfirmado: !!conf && (idade! <= 15 || !estimado),
+  }
+}
+
 // ── Estado da safra ───────────────────────────────────────────────────────
 export type Nivel = 'bom' | 'atencao' | 'critico' | 'info'
 export type Ponto = { nivel: Nivel; texto: string }
@@ -96,6 +131,8 @@ export type Diagnostico = {
   titulo: string
   estadio: string | null
   estadioEstimado: boolean
+  /** O ponto de atenção agora (o que já está em tratamento não entra). */
+  agora: string | null
   pontos: Ponto[]
 }
 
@@ -104,8 +141,8 @@ export type EntradaDiagnostico = {
   areaHa: number
   dap: number | null
   diasParaColheita: number | null
-  operacoes: Operacao[]          // do talhão, mais recentes primeiro
-  campo: Campo[]                 // do talhão
+  problemas: Problema[]           // do talhão, desta safra
+  estadio: { vale: string | null; valeConfirmado: boolean }
   chuva15: number
   chuva30: number
   chuva7: number
@@ -114,23 +151,17 @@ export type EntradaDiagnostico = {
   custoEstimado: boolean
 }
 
-/** Conclui o estado da safra a partir do que foi registrado (operações, MIP, chuva, estádio, colheita). */
-export function diagnosticoSafra(e: EntradaDiagnostico, hoje = new Date()): Diagnostico {
+/** Conclui o estado da safra no talhão a partir dos problemas, estádio, chuva e colheita. */
+export function diagnosticoSafra(e: EntradaDiagnostico): Diagnostico {
   const c = e.ciclo
-  if (!c) return { nivel: 'sem-dados', titulo: 'Sem safra', estadio: null, estadioEstimado: false, pontos: [{ nivel: 'info', texto: 'Registre o Plantio (Registrar › Operação) e a safra se monta sozinha.' }] }
+  if (!c) return { nivel: 'sem-dados', titulo: 'Sem safra', estadio: null, estadioEstimado: false, agora: null, pontos: [{ nivel: 'info', texto: 'Registre o Plantio (Registrar › Operação) e a safra se monta sozinha.' }] }
   const pontos: Ponto[] = []
-  const desde = (x?: string | null) => (x ? Math.floor((hoje.getTime() - new Date(x.length === 10 ? x + 'T12:00:00' : x).getTime()) / 864e5) : null)
 
   if (c.status === 'Planejado') {
     pontos.push({ nivel: 'info', texto: `Aguardando plantio. Quando a operação Plantio for registrada, a safra passa para "em andamento".` })
-    return { nivel: 'bom', titulo: 'Planejada', estadio: 'Pré-plantio', estadioEstimado: false, pontos }
+    return { nivel: 'bom', titulo: 'Planejada', estadio: 'Pré-plantio', estadioEstimado: false, agora: null, pontos }
   }
-
-  // Estádio: o anotado vale se for recente; senão o estimado pelos dias de plantio.
-  const anotadoHa = desde(c.data_estadio)
-  const estimado = c.status === 'Em andamento' ? estadioEstimado(c, e.dap) : null
-  const usaAnotado = !!c.estadio_atual && (anotadoHa == null || anotadoHa <= 15 || !estimado)
-  const estadio = c.status === 'Colhido' ? 'Colhido' : usaAnotado ? c.estadio_atual! : estimado
+  const estadio = c.status === 'Colhido' ? 'Colhido' : e.estadio.vale
 
   if (c.status === 'Colhido') {
     const ref = referenciaCultura(c.cultura, c.safra)
@@ -140,31 +171,27 @@ export function diagnosticoSafra(e: EntradaDiagnostico, hoje = new Date()): Diag
       const base = c.meta_por_ha ? 'da meta' : 'da média regional (padrão mercado)'
       pontos.push({ nivel: r >= 0.95 ? 'bom' : r >= 0.8 ? 'atencao' : 'critico', texto: `Produtividade ${fmt(e.produtividade)} ${c.unidade_producao}/ha, ${Math.round(r * 100)}% ${base}.` })
     } else if (e.produtividade == null) pontos.push({ nivel: 'info', texto: 'Colhida. Informe a produção na operação de colheita para fechar o resultado.' })
-    if (e.custoHa != null) pontos.push({ nivel: 'info', texto: `Insumos: R$ ${fmt(e.custoHa)}/ha${e.custoEstimado ? ' (parte pelo padrão mercado)' : ''}.` })
+    if (e.custoHa != null) pontos.push({ nivel: 'info', texto: `Insumos: R$ ${fmt(e.custoHa)}/ha${e.custoEstimado ? ' (parte estimada)' : ''}.` })
     const venda = precoProduto(c.cultura)
     if (e.produtividade != null && venda?.preco && c.cultura !== 'Cana-de-açúcar' && c.unidade_producao === 'sc') {
       const receita = e.produtividade * venda.preco
       pontos.push({ nivel: 'info', texto: `Receita bruta ≈ R$ ${fmt(receita)}/ha (padrão mercado: R$ ${venda.preco.toLocaleString('pt-BR')}/sc, ${venda.fonte ?? ''})${e.custoHa != null ? `, sobra ≈ R$ ${fmt(receita - e.custoHa)}/ha depois dos insumos` : ''}.` })
     }
-    return { nivel: pior(pontos), titulo: 'Colhida', estadio, estadioEstimado: false, pontos }
+    return { nivel: pior(pontos), titulo: 'Colhida', estadio, estadioEstimado: false, agora: null, pontos }
   }
 
-  // MIP: nível de controle atingido e se já houve pulverização depois.
-  const abertos = e.campo.filter((x) => x.status !== 'Resolvida' && !x.excluido_em)
-  for (const a of abertos.filter((x) => x.status === 'Aplicação indicada')) {
-    const pulv = e.operacoes.find((o) => o.tipo === 'Pulverização' && o.data_hora > a.data_hora)
-    const nome = `${a.tipo.toLowerCase()}${a.alvo ? ` (${a.alvo})` : ''}`
-    if (pulv) pontos.push({ nivel: 'atencao', texto: `Pulverização feita depois do alerta de ${nome}. Volte a monitorar e marque como resolvida se o nível caiu.` })
-    else pontos.push({ nivel: 'critico', texto: `${cap(nome)} acima do nível de controle ${quando(desde(a.data_hora))}, sem pulverização registrada depois.` })
+  // Problemas: a cor vem dos abertos; o que está em tratamento aparece à parte.
+  const abertos = ordenar(e.problemas.filter((p) => p.situacao === 'aberto'))
+  const nivelGrav = { Alta: 'critico', Média: 'atencao', Leve: 'info' } as const
+  for (const p of abertos) {
+    const quem = p.c.quem_viu && p.c.quem_viu !== 'Equipe' ? `, visto pelo ${p.c.quem_viu.toLowerCase()}` : ''
+    const trata = classeQueTrata(p.c.tipo)
+    pontos.push({ nivel: nivelGrav[gravidade(p.c)], texto: `${cap(nomeProblema(p.c))} (${gravidade(p.c).toLowerCase()}) ${quando(diasAte(p.c.data_hora))}${quem}${trata ? `, sem ${trata} aplicado depois` : ''}.` })
   }
-  for (const a of abertos.filter((x) => x.status !== 'Aplicação indicada' && x.urgencia === 'Alta'))
-    pontos.push({ nivel: 'atencao', texto: `${a.tipo}${a.alvo ? ` (${a.alvo})` : ''} com urgência alta em aberto.` })
-
-  // Frequência de monitoramento com a lavoura no campo.
-  const ultMon = e.campo.filter((x) => !x.excluido_em).sort((a, b) => b.data_hora.localeCompare(a.data_hora))[0]
-  const semMon = ultMon ? desde(ultMon.data_hora) : e.dap
-  if (c.cultura !== 'Cana-de-açúcar' && e.dap != null && e.dap >= 10 && semMon != null && semMon > 10)
-    pontos.push({ nivel: 'atencao', texto: `${ultMon ? `Último monitoramento há ${semMon} dias` : 'Nenhum monitoramento desde o plantio'}. O MIP pede vistoria semanal.` })
+  for (const p of e.problemas.filter((x) => x.situacao === 'em-tratamento'))
+    pontos.push({ nivel: 'info', texto: `${cap(nomeProblema(p.c))} em tratamento com ${p.produto} ${quando(p.diasTratado ?? 0).replace('desde', 'aplicado')}.` })
+  for (const p of e.problemas.filter((x) => x.situacao === 'perguntar'))
+    pontos.push({ nivel: 'atencao', texto: `${cap(nomeProblema(p.c))}: tratado com ${p.produto} há ${p.diasTratado} dias. Resolveu?` })
 
   // Água nas fases críticas (florescimento e enchimento de grãos).
   if (estadio && FASES_CRITICAS_AGUA.includes(estadio) && e.chuva15 < 30)
@@ -179,16 +206,19 @@ export function diagnosticoSafra(e: EntradaDiagnostico, hoje = new Date()): Diag
   else if (e.diasParaColheita != null && e.diasParaColheita >= 0 && e.diasParaColheita <= 15)
     pontos.push({ nivel: 'info', texto: `Colheita prevista em ${e.diasParaColheita} dias. Hora de programar máquinas e frete.` })
 
-  // Dados que melhoram a conclusão.
-  const faltam = [!c.cultivar && 'cultivar', !c.ciclo_cultivar_dias && 'ciclo da cultivar', c.cultura !== 'Cana-de-açúcar' && !c.populacao_plantas_ha && 'população'].filter(Boolean)
-  if (faltam.length) pontos.push({ nivel: 'info', texto: `Para estimar melhor, informe ${faltam.join(', ')} no Plantio ou na safra.` })
-  if (e.custoHa != null) pontos.push({ nivel: 'info', texto: `Insumos até agora: R$ ${fmt(e.custoHa)}/ha${e.custoEstimado ? ' (parte pelo padrão mercado)' : ''}.` })
+  const faltam = [!c.cultivar && 'cultivar', !c.ciclo_cultivar_dias && 'ciclo da cultivar'].filter(Boolean)
+  if (faltam.length) pontos.push({ nivel: 'info', texto: `Para estimar melhor o estádio, informe ${faltam.join(' e ')} no Plantio ou na safra.` })
+  if (e.custoHa != null) pontos.push({ nivel: 'info', texto: `Insumos até agora: R$ ${fmt(e.custoHa)}/ha${e.custoEstimado ? ' (parte estimada)' : ''}.` })
 
-  const nivel = pior(pontos)
+  // Cor: problemas abertos e gravidade; os demais avisos só pedem atenção.
+  const cor = corDosProblemas(e.problemas)
+  const nivel = cor === 'critico' ? 'critico' : cor === 'atencao' || pontos.some((p) => p.nivel === 'atencao') ? 'atencao' : 'bom'
+  const ordenados = pontos.sort((a, b) => ORDEM[a.nivel] - ORDEM[b.nivel])
+  const agora = abertos[0] ? ordenados[0].texto : ordenados.find((p) => p.nivel === 'atencao' || p.nivel === 'critico')?.texto ?? null
   return {
-    nivel, estadio, estadioEstimado: !usaAnotado && !!estimado,
-    titulo: nivel === 'critico' ? 'Ação necessária' : nivel === 'atencao' ? 'Pede atenção' : 'Safra em dia',
-    pontos: pontos.sort((a, b) => ORDEM[a.nivel] - ORDEM[b.nivel]),
+    nivel, estadio, estadioEstimado: !e.estadio.valeConfirmado, agora,
+    titulo: nivel === 'critico' ? 'Crítico' : nivel === 'atencao' ? 'Atenção' : 'Em dia',
+    pontos: ordenados,
   }
 }
 
@@ -198,6 +228,7 @@ function pior(p: Ponto[]): 'bom' | 'atencao' | 'critico' {
   if (p.some((x) => x.nivel === 'atencao')) return 'atencao'
   return 'bom'
 }
+const diasAte = (x: string) => Math.floor((Date.now() - new Date(x).getTime()) / 864e5)
 const fmt = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: n < 10 ? 1 : 0 })
 const quando = (d: number | null) => (!d ? 'desde hoje' : d === 1 ? 'desde ontem' : `há ${d} dias`)
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)

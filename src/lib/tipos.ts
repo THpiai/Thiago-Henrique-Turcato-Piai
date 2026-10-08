@@ -40,7 +40,15 @@ export type Campo = Local & Apagavel & {
   alvo?: string | null; nivel_encontrado?: number | null; unidade_nivel?: string | null; nivel_de_controle?: number | null
   urgencia?: 'Baixa' | 'Média' | 'Alta' | null; status: string; latitude?: number | null; longitude?: number | null
   descricao?: string | null; resolvido_em?: string | null
+  gravidade?: 'Leve' | 'Média' | 'Alta' | null; quem_viu?: 'Equipe' | 'Vendedor' | 'Agrônomo' | null
+  reaberto_em?: string | null; foto_path?: string | null
 }
+/** Estádio confirmado por alguém no campo. */
+export type Estadio = Local & Apagavel & {
+  id: string; data_hora: string; autor_id: string; talhao_id: string; ciclo_id?: string | null; estadio: string
+}
+/** Foto tirada no celular, guardada até subir para o servidor. */
+export type FotoLocal = { path: string; blob: Blob; enviada: 0 | 1; criada_em: string }
 export type EstoqueMov = Local & Apagavel & {
   id: string; data: string; autor_id: string; insumo_id: string; movimento: string; quantidade: number
   valor_total?: number | null; nota_fiscal?: string | null; fornecedor?: string | null; observacao?: string | null

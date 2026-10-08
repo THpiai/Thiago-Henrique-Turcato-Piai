@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chuvaPeriodo, cicloAtual, resumoTalhao, statusMip, type Dados } from '../src/lib/painel'
+import { chuvaPeriodo, cicloAtual, resumoTalhao, type Dados } from '../src/lib/painel'
 import type { Chuva, Ciclo, Talhao } from '../src/lib/tipos'
 
 const dia = (n: number) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10)
@@ -22,11 +22,6 @@ describe('painel', () => {
     ] as Chuva[]
     expect(chuvaPeriodo('t1', ch, 7)).toBe(25)
     expect(chuvaPeriodo('t1', ch, 30)).toBe(25)
-  })
-  it('MIP segue a regra do banco', () => {
-    expect(statusMip('Praga', 3, 2)).toBe('Aplicação indicada')
-    expect(statusMip('Praga', 1, 2)).toBe('Monitorando')
-    expect(statusMip('Máquina', 3, 2)).toBe('Aberta')
   })
   it('resumo: DAP, custo por ha e produtividade', () => {
     const d: Dados = {

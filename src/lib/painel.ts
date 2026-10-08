@@ -1,12 +1,13 @@
 import { diasDesde } from './formato'
-import type { Campo, Chuva, Ciclo, ClimaHora, Insumo, Operacao, OperacaoProduto, Saldo, Sede, Talhao } from './tipos'
-import { diagnosticoSafra, diasDoCiclo, type CicloVivo, type Diagnostico } from './safra'
+import type { Campo, Chuva, Ciclo, ClimaHora, Estadio, Insumo, Operacao, OperacaoProduto, Saldo, Sede, Talhao } from './tipos'
+import { diagnosticoSafra, diasDoCiclo, estadioDaSafra, type CicloVivo, type Diagnostico } from './safra'
+import { corDosProblemas, ordenar, situacao, type Cor, type Problema } from './problemas'
 import { referenciaInsumo } from './mercado'
 import { centro, contornoParaPontos, distanciaM, type Ponto } from './geo'
 
 export type Dados = {
   talhoes: Talhao[]; ciclos: Ciclo[]; operacoes: Operacao[]; produtos: OperacaoProduto[]
-  campo: Campo[]; chuva: Chuva[]; saldos: Saldo[]; sedes: Sede[]; insumos?: Insumo[]
+  campo: Campo[]; chuva: Chuva[]; saldos: Saldo[]; sedes: Sede[]; insumos?: Insumo[]; estadios?: Estadio[]
 }
 
 /** Sede mais próxima do talhão (pelo centro do desenho). Sem desenho: a sede Flor da Mata. */
@@ -36,8 +37,6 @@ export function cicloAtual(talhaoId: string, ciclos: Ciclo[]): Ciclo | undefined
     ordem[a.status] - ordem[b.status] || (b.data_plantio ?? '').localeCompare(a.data_plantio ?? ''))[0]
 }
 
-export const MIP_ATIVO = (c: Campo) => c.status !== 'Resolvida'
-
 /** Chuva do talhão: pluviômetro dele quando há leitura no dia; senão a estimativa da sede mais próxima. */
 export function chuvaPeriodo(talhaoId: string | null, chuva: Chuva[], dias: number, sedeId?: string): number {
   const porDia = new Map<string, number>()
@@ -61,7 +60,10 @@ export type Resumo = {
   diasParaColheita: number | null
   progresso: number | null        // 0–1 do ciclo da cultivar
   ultimaOperacao?: Operacao
-  alertas: Campo[]
+  /** Problemas do talhão nesta safra (abertos, em tratamento ou esperando o "resolveu?"). */
+  problemas: Problema[]
+  cor: Cor
+  estadio: ReturnType<typeof estadioDaSafra> | null
   chuva7: number
   chuva30: number
   custoHa: number | null
@@ -113,31 +115,23 @@ export function resumoTalhao(t: Talhao, d: Dados): Resumo {
   const chuva7 = chuvaPeriodo(t.id, d.chuva, 7, sede?.id)
   const chuva30 = chuvaPeriodo(t.id, d.chuva, 30, sede?.id)
   const custoHa = temCusto && area > 0 ? custoTotal / area : null
-  const campoT = d.campo.filter((c) => c.talhao_id === t.id)
+  const campoT = d.campo.filter((c) => c.talhao_id === t.id && (!ciclo?.data_plantio || c.data_hora.slice(0, 10) >= ciclo.data_plantio))
+  const problemas = ordenar(campoT.map((c) => situacao(c, d)).filter((p) => p.situacao !== 'resolvido'))
+  const estadio = ciclo ? estadioDaSafra(ciclo, dap, d.estadios ?? []) : null
 
   return {
     talhao: t, ciclo, dap, diasParaColheita: faltam, progresso,
     ultimaOperacao: ops[0],
-    alertas: campoT.filter(MIP_ATIVO).sort((a, b) => peso(b) - peso(a)),
+    problemas, cor: corDosProblemas(problemas), estadio,
     chuva7, chuva30, custoHa, produtividade, custoEstimado, operacoesCiclo: opsCiclo,
     vsMeta: produtividade != null && ciclo?.meta_por_ha ? produtividade / ciclo.meta_por_ha : null,
     estado: diagnosticoSafra({
-      ciclo, areaHa: area, dap, diasParaColheita: faltam, operacoes: ops,
-      campo: ciclo?.data_plantio ? campoT.filter((c) => c.data_hora.slice(0, 10) >= ciclo.data_plantio!) : campoT,
+      ciclo, areaHa: area, dap, diasParaColheita: faltam, problemas,
+      estadio: estadio ?? { vale: null, valeConfirmado: false },
       chuva7, chuva15: chuvaPeriodo(t.id, d.chuva, 15, sede?.id), chuva30,
       produtividade, custoHa, custoEstimado,
     }),
   }
-}
-
-const peso = (c: Campo) =>
-  (c.status === 'Aplicação indicada' ? 10 : 0) + ({ Alta: 3, Média: 2, Baixa: 1 }[c.urgencia ?? 'Baixa'] ?? 0)
-
-/** Situação do alerta MIP: o mesmo critério do gatilho do banco, para o celular mostrar na hora. */
-export function statusMip(tipo: string, encontrado?: number | null, controle?: number | null): string {
-  if (['Praga', 'Doença', 'Planta daninha'].includes(tipo) && encontrado != null && controle != null)
-    return encontrado >= controle ? 'Aplicação indicada' : 'Monitorando'
-  return 'Aberta'
 }
 
 /** Condição boa para pulverizar: vento até 10 km/h, umidade de 55% para cima, até 30 °C, sem chuva. */

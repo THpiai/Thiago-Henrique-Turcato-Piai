@@ -8,6 +8,7 @@ import { apagar, restaurar, salvar } from '../lib/sync'
 import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
 import { Aviso, Escolha, Rotulo } from '../components/ui'
 import { Icone } from '../components/Icone'
+import { CLASSES_INSUMO } from '../lib/problemas'
 import { doseMercado, INSUMOS_MERCADO, precoMercado, referenciaCultura, referenciaInsumo } from '../lib/mercado'
 import type { Ciclo, Insumo } from '../lib/tipos'
 
@@ -17,8 +18,9 @@ export function Mais({ ir }: { ir: (tela: string) => void }) {
     <div className="tela">
       <h1>Mais</h1>
       <div className="menu">
+        <button onClick={() => ir('mapa')}><span className="icone"><Icone n="mapa" t={26} /></span><span><b>Mapa dos talhões</b><small>Desenhar e ajustar os contornos</small></span></button>
         {gestor && <button onClick={() => ir('safras')}><span className="icone"><Icone n="folha" t={26} /></span><span><b>Safras</b><small>Cultura, cultivar, plantio, estádio e colheita por talhão</small></span></button>}
-        {gestor && <button onClick={() => ir('insumos')}><span className="icone"><Icone n="frasco" t={26} /></span><span><b>Insumos</b><small>Produtos, unidade e estoque mínimo</small></span></button>}
+        {gestor && <button onClick={() => ir('insumos')}><span className="icone"><Icone n="frasco" t={26} /></span><span><b>Insumos</b><small>Produtos, classe, unidade e estoque mínimo</small></span></button>}
         <button onClick={() => ir('equipe')}><span className="icone"><Icone n="pessoas" t={26} /></span><span><b>Equipe</b><small>Quem usa o app</small></span></button>
         <button onClick={() => ir('lixeira')}><span className="icone"><Icone n="lixo" t={26} /></span><span><b>Lixeira</b><small>Registros apagados e talhões arquivados</small></span></button>
         <button onClick={() => ir('fila')}><span className="icone"><Icone n="sinal" t={26} /></span><span><b>Envio</b><small>O que está guardado no celular</small></span></button>
@@ -67,7 +69,7 @@ export function FormCiclo({ talhaoId, cicloId, pronto }: { talhaoId: string; cic
 function FormCicloCampos({ talhaoId, talhaoNome, c, pronto }: { talhaoId: string; talhaoNome: string; c?: Ciclo; pronto: () => void }) {
   const ano = new Date().getFullYear()
   const [f, setF] = useState<Record<string, string>>(() => ({
-    safra: c?.safra ?? `Safra ${ano}/${String(ano + 1).slice(2)}`, cultura: c?.cultura ?? '', cultivar: c?.cultivar ?? '',
+    safra: c?.safra ?? `Soja ${ano}/${String(ano + 1).slice(2)}`, cultura: c?.cultura ?? '', cultivar: c?.cultivar ?? '',
     ciclo_cultivar_dias: String(c?.ciclo_cultivar_dias ?? ''), data_plantio: c?.data_plantio ?? '',
     populacao_plantas_ha: String(c?.populacao_plantas_ha ?? ''), estadio_atual: c?.estadio_atual ?? '',
     data_estadio: c?.data_estadio ?? '', colheita_prevista: c?.colheita_prevista ?? '', data_colheita: c?.data_colheita ?? '',
@@ -104,7 +106,7 @@ function FormCicloCampos({ talhaoId, talhaoNome, c, pronto }: { talhaoId: string
         <Rotulo t="Safra"><input required value={f.safra} onChange={(e) => s('safra')(e.target.value)} list="safras" /></Rotulo>
         <Escolha t="Situação" opcoes={STATUS_CICLO} valor={f.status as Ciclo['status']} muda={s('status')} />
       </div>
-      <datalist id="safras">{[`Safra ${ano}/${String(ano + 1).slice(2)}`, `Safrinha ${ano + 1}`, `Cana ${ano}/${String(ano + 1).slice(2)}`].map((x) => <option key={x} value={x} />)}</datalist>
+      <datalist id="safras">{[`Soja ${ano}/${String(ano + 1).slice(2)}`, `Safrinha ${ano + 1}`, `Cana ${ano}/${String(ano + 1).slice(2)}`].map((x) => <option key={x} value={x} />)}</datalist>
       <Escolha t="Cultura" opcoes={CULTURAS} valor={f.cultura as (typeof CULTURAS)[number]} muda={s('cultura')} />
       <div className="duas">
         <Rotulo t="Cultivar / variedade"><input value={f.cultivar} onChange={(e) => s('cultivar')(e.target.value)} /></Rotulo>
@@ -154,7 +156,7 @@ export function Insumos({ voltar }: { voltar: () => void }) {
       <ul className="lista">
         {lista.map((i) => (
           <li key={i.id} onClick={() => setEdit(i)} className={i.ativo === false ? 'mudo' : ''}>
-            <b>{i.nome}</b><small>{i.tipo} · {i.unidade}{i.ingrediente_ativo ? ` · ${i.ingrediente_ativo}` : ''}{i.estoque_minimo != null ? ` · mínimo ${i.estoque_minimo}` : ''}{i.ativo === false ? ' · inativo' : ''}</small>
+            <b>{i.nome}</b><small>{i.classe ?? <span className="falta">sem classe</span>} · {i.tipo} · {i.unidade}{i.ingrediente_ativo ? ` · ${i.ingrediente_ativo}` : ''}{i.estoque_minimo != null ? ` · mínimo ${i.estoque_minimo}` : ''}{i.ativo === false ? ' · inativo' : ''}</small>
           </li>
         ))}
       </ul>
@@ -174,7 +176,7 @@ function FormInsumo({ i, pronto }: { i: Partial<Insumo>; pronto: () => void }) {
   const ref = referenciaInsumo(f.nome)
   const doseRef = ref ? (ref.dose_min_ha != null && ref.dose_max_ha != null ? (ref.dose_min_ha + ref.dose_max_ha) / 2 : ref.dose_min_ha ?? ref.dose_max_ha ?? null) : null
   const pad: Record<string, string | null> = {
-    fabricante: ref?.fabricante ?? null, ingrediente_ativo: ref?.ingrediente_ativo ?? null, classe: ref?.classe ?? null,
+    fabricante: ref?.fabricante ?? null, ingrediente_ativo: ref?.ingrediente_ativo ?? null, classe: classeEscolha(ref?.classe),
     tipo: ref?.tipo ?? null, unidade: ref?.unidade ?? null,
     dose: doseRef != null ? String(Math.round(doseRef * 1000) / 1000).replace('.', ',') : null,
     preco: ref?.preco != null ? String(ref.preco).replace('.', ',') : null,
@@ -215,8 +217,10 @@ function FormInsumo({ i, pronto }: { i: Partial<Insumo>; pronto: () => void }) {
       <Pad k="unidade" />
       <div className="duas">
         <div><Rotulo t="Fabricante"><input value={f.fabricante} onChange={(e) => s('fabricante')(e.target.value)} placeholder={pad.fabricante ? `(${pad.fabricante})` : ''} /></Rotulo><Pad k="fabricante" /></div>
-        <div><Rotulo t="Classe"><input value={f.classe} onChange={(e) => s('classe')(e.target.value)} placeholder={pad.classe ? `(${pad.classe})` : 'Herbicida, fungicida…'} /></Rotulo><Pad k="classe" /></div>
       </div>
+      <Escolha t="Classe" dica="O app usa a classe para saber que uma aplicação está tratando um problema (inseticida para praga, herbicida para daninha, fungicida para doença)"
+        opcoes={CLASSES} valor={f.classe} muda={s('classe')} />
+      <Pad k="classe" />
       <Rotulo t="Ingrediente ativo"><input value={f.ingrediente_ativo} onChange={(e) => s('ingrediente_ativo')(e.target.value)} placeholder={pad.ingrediente_ativo ? `(${pad.ingrediente_ativo})` : ''} /></Rotulo>
       <Pad k="ingrediente_ativo" />
       <div className="duas">
@@ -236,9 +240,20 @@ function FormInsumo({ i, pronto }: { i: Partial<Insumo>; pronto: () => void }) {
       <Rotulo t="Estoque mínimo" dica="Abaixo disso aparece alerta no início"><input inputMode="decimal" value={f.minimo} onChange={(e) => s('minimo')(e.target.value)} /></Rotulo>
       <label className="check"><input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Em uso</label>
       {ref?.preco_url && <p className="fonte">Fonte do preço: <a href={ref.preco_url} target="_blank" rel="noreferrer">{ref.preco_fonte ?? 'link'}</a>{ref.preco_data ? ` (${ref.preco_data})` : ''}. Valores de referência, confira com sua revenda.</p>}
-      <button className="primario fixo" disabled={!f.nome.trim() || !f.tipo || !f.unidade}>Salvar</button>
+      <button className="primario fixo" disabled={!f.nome.trim() || !f.tipo || !f.unidade || !f.classe}>Salvar</button>
     </form>
   )
+}
+const CLASSES = [...CLASSES_INSUMO] as string[]
+/** Classe da base de mercado no nome da lista do app (ex.: "Adubo NPK" vira "Adubo"). */
+function classeEscolha(c?: string | null): string | null {
+  if (!c) return null
+  if (CLASSES.includes(c)) return c
+  if (/^adubo/i.test(c)) return 'Adubo'
+  if (/calc|gesso/i.test(c)) return 'Corretivo'
+  if (/diesel/i.test(c)) return 'Combustível'
+  if (/muda|semente/i.test(c)) return /trat/i.test(c) ? 'Tratamento de sementes' : 'Semente'
+  return 'Outro'
 }
 
 export function Equipe({ voltar }: { voltar: () => void }) {
@@ -291,7 +306,7 @@ export function Lixeira({ voltar }: { voltar: () => void }) {
     return [
       ...(gestor ? talhoes.filter((t) => t.ativo === false).map((t) => ({ id: t.id, tabela: 'talhoes' as const, tipo: 'Talhão arquivado', titulo: t.nome, detalhe: `${fmtN(Number(t.area_ha), 2)} ha`, quando: '' })) : []),
       ...fora(await db.operacoes.toArray()).filter((o) => meu(o.autor_id)).map((o) => ({ id: o.id, tabela: 'operacoes' as const, tipo: 'Operação', titulo: `${o.tipo}${o.alvo ? ' · ' + o.alvo : ''}`, detalhe: `${nomeT(o.talhao_id)} · ${fmtDataHora(o.data_hora)}`, quando: o.excluido_em! })),
-      ...fora(await db.campo.toArray()).filter((c) => meu(c.autor_id)).map((c) => ({ id: c.id, tabela: 'campo' as const, tipo: 'Monitoramento', titulo: `${c.tipo}${c.alvo ? ' · ' + c.alvo : ''}`, detalhe: `${nomeT(c.talhao_id)} · ${fmtDataHora(c.data_hora)}`, quando: c.excluido_em! })),
+      ...fora(await db.campo.toArray()).filter((c) => meu(c.autor_id)).map((c) => ({ id: c.id, tabela: 'campo' as const, tipo: 'Problema', titulo: `${c.tipo}${c.alvo ? ' · ' + c.alvo : ''}`, detalhe: `${nomeT(c.talhao_id)} · ${fmtDataHora(c.data_hora)}`, quando: c.excluido_em! })),
       ...fora(await db.chuva.toArray()).filter((c) => meu(c.autor_id)).map((c) => ({ id: c.id, tabela: 'chuva' as const, tipo: 'Chuva', titulo: `${fmtN(Number(c.milimetros), 1)} mm`, detalhe: `${nomeT(c.talhao_id)} · ${fmtData(c.data)}`, quando: c.excluido_em! })),
       ...fora(await db.estoque_mov.toArray()).filter((m) => meu(m.autor_id)).map((m) => ({ id: m.id, tabela: 'estoque_mov' as const, tipo: 'Estoque', titulo: `${m.movimento} · ${insumos.find((i) => i.id === m.insumo_id)?.nome ?? ''}`, detalhe: `${fmtN(Number(m.quantidade), 2)} · ${fmtData(m.data)}`, quando: m.excluido_em! })),
       ...(gestor ? fora(await db.ciclos.toArray()).map((c) => ({ id: c.id, tabela: 'ciclos' as const, tipo: 'Safra', titulo: `${c.safra} · ${c.cultura}`, detalhe: nomeT(c.talhao_id), quando: c.excluido_em! })) : []),

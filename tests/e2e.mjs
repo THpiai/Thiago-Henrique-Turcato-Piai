@@ -23,7 +23,7 @@ const banco = {
   ],
   insumos: [
     { id: 'i1', nome: 'Fungicida X', tipo: 'Defensivo', unidade: 'L', estoque_minimo: 50, ativo: true },
-    { id: 'i2', nome: 'Inseticida Y', tipo: 'Defensivo', unidade: 'L', estoque_minimo: 20, ativo: true },
+    { id: 'i2', nome: 'Inseticida Y', tipo: 'Defensivo', classe: 'Inseticida', unidade: 'L', estoque_minimo: 20, ativo: true },
   ],
   ciclos: [
     { id: 'c1', talhao_id: 't1', safra: 'Safra 2026/27', cultura: 'Soja', cultivar: 'BRS 1003', ciclo_cultivar_dias: 115, data_plantio: iso(38), estadio_atual: 'Vegetativo (V)', status: 'Em andamento', meta_por_ha: 68 },
@@ -46,6 +46,7 @@ const banco = {
   ],
 }
 const recebidos = []
+const fotos = []
 let semSinal = false
 
 const servidor = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', String(PORTA), '--strictPort'], { stdio: 'ignore' })
@@ -71,6 +72,10 @@ await ctx.route(/supabase\.co/, async (r) => {
     return json({ access_token: 'tok', token_type: 'bearer', expires_in: 3600, expires_at: agora + 3600, refresh_token: 'ref', user: { id: eu.id, email: eu.email, aud: 'authenticated', role: 'authenticated' } })
   }
   if (url.pathname.startsWith('/auth/v1/')) return json({})
+  if (url.pathname.startsWith('/storage/v1/object')) {
+    fotos.push(url.pathname)
+    return json({ Key: url.pathname.split('/object/')[1] })
+  }
   const tabela = url.pathname.split('/').pop()
   if (req.method() === 'PATCH') {
     const id = url.searchParams.get('id').replace(/^eq\./, '')
@@ -141,17 +146,23 @@ try {
   await pagina.getByRole('button', { name: 'Salvar operação' }).click()
   await espera('1 guardado(s) no celular')
   ok(recebidos.length === 0, 'nada foi enviado sem sinal')
+  await espera('Olá, Thiago')
 
-  // Monitoramento acima do nível de controle, ainda sem sinal.
+  // Problema registrado rápido, ainda sem sinal: tipo, nome, gravidade, quem viu e foto.
+  const t0 = Date.now()
   await pagina.getByRole('button', { name: /Registrar/ }).click()
-  await pagina.getByRole('button', { name: /Monitoramento/ }).click()
+  await pagina.getByRole('button', { name: /Problema/ }).click()
+  await espera('Você está no T01 Sede')
   await pagina.getByRole('radio', { name: 'Praga' }).click()
-  await pagina.getByLabel(/^Alvo/).fill('Lagarta-falsa-medideira')
-  await pagina.getByLabel('Encontrado').fill('4')
-  await pagina.getByLabel('Nível de controle').fill('2')
-  await espera('aplicação indicada')
-  await pagina.getByRole('button', { name: 'Salvar', exact: true }).click()
+  await pagina.getByLabel('Nome, se souber').fill('Lagarta-falsa-medideira')
+  await pagina.getByRole('radio', { name: 'Alta' }).click()
+  await pagina.getByRole('radio', { name: 'Vendedor' }).click()
+  await pagina.locator('input[type=file]').setInputFiles({ name: 'lagarta.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkqP9fDwAEfQHy3WjvzQAAAABJRU5ErkJggg==', 'base64') })
+  await pagina.getByAltText('Foto do problema').waitFor()
+  await foto('2b-problema-sem-sinal')
+  await pagina.getByRole('button', { name: 'Salvar problema' }).click()
   await espera('2 guardado(s) no celular')
+  ok(Date.now() - t0 < 60000, `problema registrado sem sinal em ${Math.round((Date.now() - t0) / 1000)} s`)
   await espera('Olá, Thiago')
 
   // Fecha e reabre o app sem sinal: tudo continua lá.
@@ -172,12 +183,48 @@ try {
   const p = recebidos.find((r) => r.tabela === 'operacao_produtos').linhas[0]
   ok(Math.abs(p.quantidade_total - 49.5) < 1e-9 && p.insumo_id === 'i1', 'produto chegou com a quantidade certa')
   ok(!JSON.stringify(recebidos).includes('_pendente'), 'nenhum campo interno vazou para o servidor')
-  ok(recebidos.find((r) => r.tabela === 'campo').linhas[0].status === 'Aplicação indicada', 'MIP chegou como aplicação indicada')
+  const prob = recebidos.find((r) => r.tabela === 'campo').linhas[0]
+  ok(prob.gravidade === 'Alta' && prob.quem_viu === 'Vendedor' && prob.latitude && prob.foto_path === `campo/${prob.id}.jpg`, 'problema chegou com gravidade, quem viu, ponto e foto')
+  for (let i = 0; i < 50 && !fotos.length; i++) await pagina.waitForTimeout(200)
+  ok(fotos.some((f) => f.includes(prob.id)), 'foto subiu para o servidor depois do registro')
+
+  // Mapa da safra: T01 ficou crítico pelo problema grave aberto (a lagarta veio depois da aplicação de fungicida).
+  await pagina.locator('.abas').getByRole('button', { name: 'Safra', exact: true }).click()
+  await espera('Soja 2026/27')
+  await pagina.locator('.mapa-safra path.leaflet-interactive').first().waitFor()
+  const corT01 = async () => pagina.locator('.linha-talhao', { hasText: 'T01 Sede' }).getAttribute('class')
+  ok((await corT01()).includes('critico'), 'T01 ficou crítico na safra com a praga grave')
+  ok(await pagina.locator('.mapa-safra path[fill="#d6452f"]').count() >= 2, 'mapa da safra pinta de vermelho os talhões críticos')
+  await foto('4b-safra')
+
+  // Aplicação de inseticida depois do problema: vira "em tratamento" e o alerta sai.
+  await pagina.getByRole('button', { name: /Registrar/ }).click()
+  await pagina.getByRole('button', { name: /Operação/ }).click()
+  await espera('Você está no T01 Sede')
+  await pagina.getByRole('radio', { name: 'Pulverização' }).click()
+  await pagina.getByRole('button', { name: '+ Produto' }).click()
+  await pagina.getByLabel('Insumo').selectOption('i2')
+  await pagina.getByLabel('Dose por hectare').fill('0,2')
+  await pagina.getByRole('button', { name: 'Salvar operação' }).click()
+  await espera('Olá, Thiago')
+  await pagina.locator('.abas').getByRole('button', { name: 'Safra', exact: true }).click()
+  await espera('Soja 2026/27')
+  ok(!(await corT01()).includes('critico'), 'aplicação de inseticida tirou o T01 do crítico')
+  await pagina.getByRole('button', { name: /T01 Sede/ }).first().click()
+  await espera('Em tratamento')
+  await espera('Tratado com Inseticida Y')
+  await espera('estimado')
+  await pagina.getByRole('button', { name: 'Confirmar estádio' }).click()
+  await pagina.getByRole('button', { name: 'Vegetativo (V)' }).click()
+  await pagina.locator('.estadio.confirmado').first().waitFor()
+  ok(true, 'estádio estimado e confirmado aparecem diferentes')
+  await foto('4c-talhao-em-tratamento')
 
   await pagina.getByRole('button', { name: /Início/ }).click()
-  await espera('aplicações indicadas')
+  await espera('problemas abertos')
   await foto('4-inicio-depois')
-  await pagina.getByRole('button', { name: /Mapa/ }).click()
+  await pagina.getByRole('button', { name: /Mais/ }).click()
+  await pagina.getByRole('button', { name: /Mapa dos talhões/ }).click()
   await pagina.locator('.leaflet-interactive').first().waitFor()
   ok(await pagina.locator('path.leaflet-interactive').count() >= 3, 'mapa desenha os talhões')
   await foto('5-mapa')
@@ -251,7 +298,7 @@ try {
   // Safra automática: Plantio num talhão sem safra cria a safra, e o estado da safra sai dos registros.
   await pagina.locator('.abas').getByRole('button', { name: /Início/ }).click()
   await espera('T02 Baixada')
-  ok(await pagina.locator('.talhao', { hasText: 'T02 Baixada' }).locator('.selo.critico').count() === 1, 'talhão com praga acima do nível e sem pulverização aparece como ação necessária')
+  ok(await pagina.locator('.talhao', { hasText: 'T02 Baixada' }).locator('.selo.critico').count() === 1, 'talhão com problema grave aberto aparece como crítico no início')
   await pagina.getByRole('button', { name: /Registrar/ }).click()
   await pagina.getByRole('button', { name: /Operação/ }).click()
   await pagina.locator('form select').first().selectOption('t4')
@@ -270,19 +317,21 @@ try {
   await espera('Olá, Thiago')
   await pagina.getByRole('button', { name: /T04 Nova/ }).click()
   await espera('Estado da safra')
-  await espera('Safra 2026/27 · Soja')
+  await espera('Soja 2026/27')
   await espera('1 plantio')
   ok(await pagina.getByText('BRS 7980').count() > 0, 'safra aparece no talhão com a cultivar do plantio')
   await foto('11-estado-safra')
   await pagina.getByRole('button', { name: '‹ Voltar' }).click()
   await pagina.getByRole('button', { name: /T02 Baixada/ }).click()
-  await espera('acima do nível de controle desde hoje')
+  await espera('Ponto de atenção agora')
+  await espera('Percevejo-marrom (alta)')
   await foto('12-estado-safra-critico')
 
   // Padrão mercado no cadastro de insumo.
   await pagina.locator('.secundarias').getByRole('button', { name: /Insumos/ }).click()
   await pagina.getByRole('button', { name: '+ Insumo' }).click()
   await pagina.getByLabel('Nome comercial').fill('Fox Xpro')
+  ok(await pagina.getByRole('button', { name: 'Salvar', exact: true }).isDisabled(), 'insumo pede a classe')
   await espera('Padrão mercado encontrado')
   await espera('(padrão mercado: R$ 268,00/L')
   await foto('13-insumo-padrao-mercado')
@@ -291,7 +340,7 @@ try {
   await pagina.getByRole('button', { name: 'Salvar', exact: true }).click()
   for (let i = 0; i < 50 && !recebidos.some((r) => r.tabela === 'insumos'); i++) await pagina.waitForTimeout(200)
   const ins = recebidos.find((r) => r.tabela === 'insumos').linhas[0]
-  ok(ins.preco_unitario === 268 && ins.unidade === 'L' && ins.tipo === 'Defensivo' && ins.dose_ha_padrao === 0.5, `insumo subiu com dados de mercado (${ins.ingrediente_ativo})`)
+  ok(ins.preco_unitario === 268 && ins.unidade === 'L' && ins.tipo === 'Defensivo' && ins.dose_ha_padrao === 0.5 && ins.classe === 'Fungicida', `insumo subiu com dados de mercado (${ins.ingrediente_ativo})`)
 
   ok(erros.length === 0, 'sem erros de JavaScript' + (erros.length ? ': ' + erros.join(' | ') : ''))
   console.log('\nTODOS OS TESTES PASSARAM')

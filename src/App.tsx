@@ -16,6 +16,7 @@ import { FormCampo } from './screens/FormCampo'
 import { FormChuva } from './screens/FormChuva'
 import { Estoque } from './screens/Estoque'
 import { Mapa } from './screens/Mapa'
+import { Safra } from './screens/Safra'
 import { Equipe, Fila, FormCiclo, Insumos, Lixeira, Mais, Safras } from './screens/Mais'
 import { BarraDesfazer } from './components/Apagar'
 
@@ -97,6 +98,7 @@ function Casca() {
       case 'chuva': return <FormChuva pronto={() => ir('inicio')} />
       case 'estoque': return <Estoque />
       case 'mapa': return <Mapa abrirTalhao={abrirTalhao} />
+      case 'safra': return <Safra abrirTalhao={abrirTalhao} ir={ir} />
       case 'mais': return <Mais ir={ir} />
       case 'safras': return <Safras voltar={voltar} abrir={editarCiclo} />
       case 'ciclo': return <FormCiclo key={`${a}/${b}`} talhaoId={a} cicloId={b} pronto={voltar} />
@@ -109,15 +111,16 @@ function Casca() {
   })()
 
   const aba = ['registrar', 'operacao', 'campo', 'chuva'].includes(tela) ? 'registrar'
-    : ['mais', 'safras', 'ciclo', 'insumos', 'equipe', 'fila', 'lixeira'].includes(tela) ? 'mais'
+    : ['mais', 'safras', 'ciclo', 'insumos', 'equipe', 'fila', 'lixeira', 'mapa'].includes(tela) ? 'mais'
       : tela === 'talhao' ? 'inicio' : tela
   const abas = [
-    { id: 'inicio', t: 'Início', i: 'inicio' }, { id: 'mapa', t: 'Mapa', i: 'mapa' },
+    { id: 'inicio', t: 'Início', i: 'inicio' }, { id: 'safra', t: 'Safra', i: 'folha' },
     { id: 'registrar', t: 'Registrar', i: 'registrar' }, { id: 'estoque', t: 'Estoque', i: 'estoque' }, { id: 'mais', t: 'Mais', i: 'mais' },
   ]
   // No computador a barra lateral mostra também os cadastros.
   const extras = [
-    ...(gestor ? [{ id: 'safras', t: 'Safras', i: 'folha' }, { id: 'insumos', t: 'Insumos', i: 'frasco' }] : []),
+    { id: 'mapa', t: 'Mapa dos talhões', i: 'mapa' },
+    ...(gestor ? [{ id: 'safras', t: 'Safras por talhão', i: 'folha' }, { id: 'insumos', t: 'Insumos', i: 'frasco' }] : []),
     { id: 'equipe', t: 'Equipe', i: 'pessoas' }, { id: 'lixeira', t: 'Lixeira', i: 'lixo' }, { id: 'fila', t: 'Envio', i: 'sinal' },
   ]
   return (

@@ -1,7 +1,13 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDados, useLive, useSessao } from '../lib/hooks'
 import { resumoTalhao, type Resumo } from '../lib/painel'
 import type { Operacao } from '../lib/tipos'
+import { grupoSafra, type estadioDaSafra } from '../lib/safra'
+import { gravidade, nomeProblema, type Problema } from '../lib/problemas'
+import { ESTADIOS_CANA, ESTADIOS_GRAOS } from '../lib/opcoes'
+import { uuid } from '../lib/formato'
+import { salvar } from '../lib/sync'
+import { supabase } from '../lib/supabase'
 import { db } from '../lib/db'
 import { fmtData, fmtDataHora, fmtN } from '../lib/formato'
 import { alterar, apagar, restaurar } from '../lib/sync'
@@ -10,7 +16,7 @@ import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
 
 type Evento = { id: string; quando: string; titulo: string; detalhe?: string; tipo: 'op' | 'campo' | 'chuva'; tabela: TabelaSync; autor?: string | null; pendente?: boolean }
 
-const NOME: Record<string, string> = { op: 'Operação', campo: 'Monitoramento', chuva: 'Leitura de chuva' }
+const NOME: Record<string, string> = { op: 'Operação', campo: 'Problema', chuva: 'Leitura de chuva' }
 
 export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar: () => void; editarCiclo: (talhaoId: string, cicloId?: string) => void }) {
   const d = useDados()
@@ -29,8 +35,8 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
     })),
     ...d.campo.filter((c) => c.talhao_id === id).map((c) => ({
       id: c.id, quando: c.data_hora, tipo: 'campo' as const, tabela: 'campo' as const, autor: c.autor_id, pendente: c._pendente === 1,
-      titulo: `${c.tipo}${c.alvo ? ` · ${c.alvo}` : ''} — ${c.status}`,
-      detalhe: [c.nivel_encontrado != null ? `${fmtN(c.nivel_encontrado, 2)} ${c.unidade_nivel ?? ''} (controle ${fmtN(c.nivel_de_controle, 2)})` : '', c.descricao].filter(Boolean).join(' · ') || undefined,
+      titulo: `${c.tipo}${c.alvo ? ` · ${c.alvo}` : ''} — ${gravidade(c).toLowerCase()}${c.status === 'Resolvida' ? ', resolvido' : ''}`,
+      detalhe: [c.quem_viu && c.quem_viu !== 'Equipe' ? `visto pelo ${c.quem_viu.toLowerCase()}` : '', c.nivel_encontrado != null ? `${fmtN(c.nivel_encontrado, 2)} ${c.unidade_nivel ?? ''}` : '', c.descricao].filter(Boolean).join(' · ') || undefined,
     })),
     ...d.chuva.filter((c) => c.talhao_id === id).map((c) => ({
       id: c.id, quando: c.data, tipo: 'chuva' as const, tabela: 'chuva' as const, autor: c.autor_id, pendente: c._pendente === 1, titulo: `Chuva ${fmtN(Number(c.milimetros), 1)} mm`,
@@ -39,7 +45,6 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
 
   const ciclos = d.ciclos.filter((c) => c.talhao_id === id).sort((a, b) => (b.data_plantio ?? b.safra).localeCompare(a.data_plantio ?? a.safra))
 
-  const resolver = (cid: string) => alterar('campo', [cid], { status: 'Resolvida', resolvido_em: new Date().toISOString() })
   const podeApagar = (e: Evento) => gestor || e.autor === eu.id
   async function apagarEvento(e: Evento) {
     await apagar(e.tabela, [e.id])
@@ -62,11 +67,11 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
         <h2>Safra atual</h2>
         {r.ciclo ? (
           <dl className="ficha">
-            <dt>Safra</dt><dd>{r.ciclo.safra} · {r.ciclo.cultura}</dd>
+            <dt>Safra</dt><dd>{grupoSafra(r.ciclo)}{grupoSafra(r.ciclo).startsWith(r.ciclo.cultura.slice(0, 4)) ? '' : ` · ${r.ciclo.cultura}`}</dd>
             {r.ciclo.cultivar && <><dt>Cultivar</dt><dd>{r.ciclo.cultivar}{r.ciclo.ciclo_cultivar_dias ? ` (${r.ciclo.ciclo_cultivar_dias} dias)` : ''}</dd></>}
             <dt>Plantio</dt><dd>{fmtData(r.ciclo.data_plantio)}{r.dap != null ? ` · ${r.dap} DAP` : ''}</dd>
             {r.ciclo.populacao_plantas_ha && <><dt>População</dt><dd>{fmtN(r.ciclo.populacao_plantas_ha)} plantas/ha</dd></>}
-            <dt>Estádio</dt><dd>{r.estado.estadio ?? '–'}{r.estado.estadioEstimado ? ' (estimado pelos dias de plantio)' : r.ciclo.data_estadio && r.estado.estadio === r.ciclo.estadio_atual ? ` (anotado ${fmtData(r.ciclo.data_estadio)})` : ''}</dd>
+            <dt>Estádio</dt><dd>{r.estadio && r.ciclo.status === 'Em andamento' ? <><Estadio e={r.estadio} /><ConfirmarEstadio talhaoId={id} cicloId={r.ciclo.id} cultura={r.ciclo.cultura} /></> : r.estado.estadio ?? '–'}</dd>
             <dt>Operações</dt><dd>{resumoOps(r.operacoesCiclo)}</dd>
             <dt>Colheita</dt><dd>{r.ciclo.data_colheita ? `colhido em ${fmtData(r.ciclo.data_colheita)}` : r.diasParaColheita != null ? `prevista em ${r.diasParaColheita} dias` : '–'}</dd>
             {r.ciclo.producao != null && <><dt>Produção</dt><dd>{fmtN(r.ciclo.producao, 1)} {r.ciclo.unidade_producao} · <b>{fmtN(r.produtividade, 1)} {r.ciclo.unidade_producao}/ha</b>{r.ciclo.meta_por_ha ? ` (meta ${fmtN(r.ciclo.meta_por_ha, 1)})` : ''}</dd></>}
@@ -83,20 +88,7 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
         )}
       </section>
 
-      {r.alertas.length > 0 && (
-        <section className="cartao">
-          <h2>Ocorrências abertas</h2>
-          <ul className="lista">
-            {r.alertas.map((a) => (
-              <li key={a.id} className={a.status === 'Aplicação indicada' ? 'alerta' : ''}>
-                <b>{a.tipo}{a.alvo ? ` · ${a.alvo}` : ''}</b> — {a.status}{a.urgencia ? ` · urgência ${a.urgencia.toLowerCase()}` : ''}
-                <small>{fmtDataHora(a.data_hora)}{a.descricao ? ` · ${a.descricao}` : ''}</small>
-                <button className="mini" onClick={() => void resolver(a.id)}>Resolvida</button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {r.problemas.length > 0 && <Problemas ps={r.problemas} />}
 
       {ciclos.length > 1 && (
         <section className="cartao">
@@ -148,7 +140,7 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
   )
 }
 
-const NIVEL_TXT = { bom: 'Em dia', atencao: 'Atenção', critico: 'Ação necessária', 'sem-dados': 'Sem safra' } as const
+const NIVEL_TXT = { bom: 'Em dia', atencao: 'Atenção', critico: 'Crítico', 'sem-dados': 'Sem safra' } as const
 
 /** Conclusão automática sobre a safra, a partir de operações, monitoramento, chuva e estádio. */
 export function EstadoSafra({ r }: { r: Resumo }) {
@@ -162,12 +154,13 @@ export function EstadoSafra({ r }: { r: Resumo }) {
       {r.ciclo && r.ciclo.status === 'Em andamento' && (
         <div className="trilha" aria-label="Andamento do ciclo">
           <div className="barra"><span style={{ width: `${Math.round((r.progresso ?? 0) * 100)}%` }} /></div>
-          <small>{e.estadio ?? '–'}{e.estadioEstimado ? ' (estimado)' : ''}{r.dap != null ? ` · ${r.dap} dias de plantio` : ''}{r.diasParaColheita != null ? ` · colheita ${r.diasParaColheita >= 0 ? `em ${r.diasParaColheita} dias` : `atrasada ${-r.diasParaColheita} dias`}` : ''}</small>
+          <small>{r.estadio ? <Estadio e={r.estadio} curto /> : '–'}{r.dap != null ? ` · ${r.dap} dias de plantio` : ''}{r.diasParaColheita != null ? ` · colheita ${r.diasParaColheita >= 0 ? `em ${r.diasParaColheita} dias` : `atrasada ${-r.diasParaColheita} dias`}` : ''}</small>
         </div>
       )}
+      {e.agora && <p className={`agora-destaque ${e.nivel}`}><b>Ponto de atenção agora:</b> {e.agora}</p>}
       {e.pontos.length > 0 && (
         <ul className="pontos">
-          {e.pontos.map((p, i) => <li key={i} className={p.nivel}>{p.texto}</li>)}
+          {e.pontos.filter((p) => p.texto !== e.agora).map((p, i) => <li key={i} className={p.nivel}>{p.texto}</li>)}
         </ul>
       )}
     </section>
@@ -178,5 +171,88 @@ function resumoOps(ops: Operacao[]): string {
   if (!ops.length) return 'nenhuma ainda'
   const n = new Map<string, number>()
   for (const o of ops) n.set(o.tipo, (n.get(o.tipo) ?? 0) + 1)
-  return [...n].map(([t, q]) => `${q} ${t.toLowerCase()}`).join(' · ')
+  const pl = (w: string) => (w.endsWith('ão') ? w.slice(0, -2) + 'ões' : w.endsWith('m') ? w.slice(0, -1) + 'ns' : w + 's')
+  // Só a primeira palavra vai para o plural: "2 preparos de solo", "3 pulverizações".
+  const plural = (t: string, q: number) => (q === 1 ? t : t.replace(/^\S+/, pl))
+  return [...n].map(([t, q]) => `${q} ${plural(t.toLowerCase(), q)}`).join(' · ')
+}
+
+/** Estádio: estimado (cultivar + dias de plantio) e confirmado pelo campo aparecem diferentes. */
+export function Estadio({ e, curto }: { e: ReturnType<typeof estadioDaSafra>; curto?: boolean }) {
+  const pessoas = useLive(() => db.pessoas.toArray()) ?? []
+  const quem = (id?: string) => pessoas.find((p) => p.id === id)?.nome.split(' ')[0]
+  if (!e.vale) return <span className="mudo">–</span>
+  if (e.valeConfirmado && e.confirmado)
+    return <span className="estadio confirmado" title="Confirmado no campo">{e.confirmado.estadio}{!curto && <small> confirmado {e.confirmado.dias === 0 ? 'hoje' : `há ${e.confirmado.dias} dia(s)`}{'autor' in e.confirmado && e.confirmado.autor ? ` por ${quem(e.confirmado.autor as string) ?? 'alguém da equipe'}` : ''}</small>}</span>
+  return <span className="estadio estimado" title="Estimado pela cultivar e dias de plantio">{e.vale} <em>estimado</em>{!curto && e.confirmado && <small> último confirmado: {e.confirmado.estadio}, há {e.confirmado.dias} dias</small>}</span>
+}
+
+/** Quem está no campo confirma o estádio com um toque (qualquer pessoa da equipe, sem sinal também). */
+function ConfirmarEstadio({ talhaoId, cicloId, cultura }: { talhaoId: string; cicloId: string; cultura: string }) {
+  const { eu } = useSessao()
+  const [aberto, setAberto] = useState(false)
+  const opcoes = (cultura === 'Cana-de-açúcar' ? ESTADIOS_CANA : ESTADIOS_GRAOS).filter((x) => x !== 'Pré-plantio')
+  if (!aberto) return <button className="mini confirmar-estadio" onClick={() => setAberto(true)}>Confirmar estádio</button>
+  return (
+    <div className="escolha-estadio" role="group" aria-label="Estádio visto no campo">
+      {opcoes.map((x) => (
+        <button key={x} className="mini" onClick={() => {
+          void salvar('estadios', [{ id: uuid(), data_hora: new Date().toISOString(), autor_id: eu.id, talhao_id: talhaoId, ciclo_id: cicloId, estadio: x }])
+          setAberto(false)
+        }}>{x}</button>
+      ))}
+      <button className="mini" onClick={() => setAberto(false)}>Cancelar</button>
+    </div>
+  )
+}
+
+const ROT_SIT = { aberto: 'Aberto', 'em-tratamento': 'Em tratamento', perguntar: 'Resolveu?', resolvido: 'Resolvido' } as const
+
+/** Problemas da safra no talhão: abertos, em tratamento (detectado pela aplicação) e os que esperam o "resolveu?". */
+function Problemas({ ps }: { ps: Problema[] }) {
+  const agora = () => new Date().toISOString()
+  const resolveu = (id: string) => void alterar('campo', [id], { status: 'Resolvida', resolvido_em: agora() })
+  const naoResolveu = (id: string) => void alterar('campo', [id], { reaberto_em: agora() })
+  return (
+    <section className="cartao">
+      <h2>Problemas</h2>
+      <ul className="lista problemas">
+        {ps.map((p) => (
+          <li key={p.c.id} className={`grav-${gravidade(p.c).toLowerCase()} sit-${p.situacao}`}>
+            <div className="cab">
+              <b>{nomeProblema(p.c)}</b>
+              <span className={`selo ${p.situacao === 'aberto' ? (gravidade(p.c) === 'Alta' ? 'critico' : 'atencao') : p.situacao === 'perguntar' ? 'atencao' : 'bom'}`}>{ROT_SIT[p.situacao]}</span>
+            </div>
+            <small>{p.c.tipo} · {gravidade(p.c).toLowerCase()} · {fmtDataHora(p.c.data_hora)}{p.c.quem_viu ? ` · visto por: ${p.c.quem_viu.toLowerCase()}` : ''}{p.c.descricao ? ` · ${p.c.descricao}` : ''}</small>
+            {p.tratamento && <small className="tratado">Tratado com {p.produto} em {fmtData(p.tratamento.data_hora)}{p.situacao === 'em-tratamento' ? ` (pergunta "resolveu?" em ${Math.max(0, 14 - (p.diasTratado ?? 0))} dias)` : ''}.</small>}
+            {p.c.foto_path && <Foto path={p.c.foto_path} />}
+            <div className="acoes">
+              {p.situacao === 'perguntar' ? <>
+                <button className="mini" onClick={() => resolveu(p.c.id)}>Sim, resolveu</button>
+                <button className="mini" onClick={() => naoResolveu(p.c.id)}>Não resolveu</button>
+              </> : <button className="mini" onClick={() => resolveu(p.c.id)}>Resolvido</button>}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/** Foto do problema: do celular enquanto não subiu; do servidor depois. */
+function Foto({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    let vivo = true, local: string | null = null
+    void (async () => {
+      const f = await db.fotos.get(path)
+      if (f) { local = URL.createObjectURL(f.blob); if (vivo) setUrl(local); return }
+      if (!navigator.onLine) return
+      const { data } = await supabase.storage.from('fotos').createSignedUrl(path, 3600)
+      if (vivo && data?.signedUrl) setUrl(data.signedUrl)
+    })()
+    return () => { vivo = false; if (local) URL.revokeObjectURL(local) }
+  }, [path])
+  if (!url) return <small className="mudo">Foto (aparece com sinal)</small>
+  return <a href={url} target="_blank" rel="noreferrer" className="foto-mini"><img src={url} alt="Foto do problema" /></a>
 }

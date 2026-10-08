@@ -373,3 +373,48 @@ button.mercado { display: inline-block; background: none; border: 0; padding: 0.
 .ref-mercado button { justify-self: start; }
 .fonte { font-size: 0.78rem; color: var(--mudo); }
 .fonte a { color: inherit; }
+
+/* ── Etapa 1: safra como conjunto, problemas e estádio ──────────────────── */
+.estadio.confirmado { font-weight: 600; color: var(--verde-texto); }
+.estadio.confirmado::before { content: '✓ '; }
+.estadio.estimado { font-style: italic; color: var(--mudo); border-bottom: 1px dashed var(--linha-forte); }
+.estadio em { font-size: 0.78em; font-style: normal; text-transform: uppercase; letter-spacing: 0.06em; margin-left: 0.2rem; }
+.estadio small { display: inline; font-weight: 400; font-style: normal; }
+.confirmar-estadio { margin-left: 0.5rem; }
+.escolha-estadio { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+.agora-destaque { margin: 0.8rem 0 0; padding: 0.6rem 0.8rem; border-radius: var(--raio-p); background: var(--papel-2); font-size: 0.92rem; }
+.agora-destaque.critico { background: var(--alerta-claro); color: var(--alerta); }
+.agora-destaque.atencao { background: var(--aviso-claro); color: var(--aviso); }
+
+.filtro-safras { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.3rem; margin: -0.4rem 0 0.8rem; }
+.filtro-safras button { flex: none; border: 1px solid var(--linha-forte); background: var(--papel); color: var(--tinta); border-radius: 99px; padding: 0.4rem 0.9rem; font: inherit; font-size: 0.88rem; cursor: pointer; }
+.filtro-safras button.on { background: var(--primario); color: var(--primario-texto); border-color: var(--primario); }
+.resumo-safra { margin: -0.5rem 0 0.6rem; }
+.contagem-cores { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+.mapa-safra { height: min(52vh, 460px); border-radius: var(--raio); overflow: hidden; border: 1px solid var(--linha); background: #1d2a1f; }
+.lista-safra { list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: 0.5rem; }
+.linha-talhao { width: 100%; display: grid; grid-template-columns: 6px 1fr auto; gap: 0.8rem; align-items: center; text-align: left; font: inherit; color: inherit; background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 0.7rem 0.85rem 0.7rem 0.6rem; cursor: pointer; box-shadow: var(--sombra); }
+.linha-talhao .cor { align-self: stretch; border-radius: 99px; }
+.linha-talhao .txt { min-width: 0; display: grid; gap: 0.15rem; }
+.linha-talhao .agora { font-size: 0.85rem; }
+.linha-talhao .agora.critico { color: var(--alerta); }
+.linha-talhao .agora.atencao { color: var(--aviso); }
+@media (min-width: 1024px) { .tela-safra { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); column-gap: 1.5rem; align-items: start; }
+  .tela-safra > h1, .tela-safra > .filtro-safras, .tela-safra > .resumo-safra, .tela-safra > .contagem-cores, .tela-safra > .aviso { grid-column: 1 / -1; }
+  .tela-safra .mapa-safra { height: 70vh; position: sticky; top: 1rem; }
+  .tela-safra .lista-safra { margin-top: 0; } }
+
+.mapa-ponto { height: 220px; border-radius: var(--raio-p); overflow: hidden; border: 1px solid var(--linha); background: #1d2a1f; }
+.foto-problema { display: flex; align-items: center; gap: 0.8rem; margin: 0.2rem 0 0.8rem; }
+.foto-problema img { width: 84px; height: 84px; object-fit: cover; border-radius: var(--raio-p); border: 1px solid var(--linha); }
+.botao-foto { display: inline-flex; align-items: center; cursor: pointer; }
+.mais-detalhes { margin: 0.4rem 0 0.8rem; }
+.mais-detalhes summary { cursor: pointer; color: var(--mudo); font-size: 0.9rem; padding: 0.4rem 0; }
+.problemas li { display: grid; gap: 0.25rem; }
+.problemas .cab { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.problemas li.grav-alta.sit-aberto { border-left: 4px solid var(--alerta); }
+.problemas li.grav-média.sit-aberto { border-left: 4px solid var(--aviso); }
+.problemas .tratado { color: var(--verde-texto); }
+.problemas .acoes { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.2rem; }
+.foto-mini img { width: 120px; height: 90px; object-fit: cover; border-radius: var(--raio-p); border: 1px solid var(--linha); }
+.falta { color: var(--aviso); font-weight: 600; display: inline; }

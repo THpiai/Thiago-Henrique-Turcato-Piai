@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css'
 import { useDados, useGps, useSessao } from '../lib/hooks'
 import { areaHa, centro, contornoParaPontos, distanciaM, perimetroM, pontosParaContorno, type Ponto } from '../lib/geo'
 import { EditorContorno, enquadrarLivre } from '../lib/editor'
-import { cicloAtual } from '../lib/painel'
+import { cicloAtual, resumoTalhao } from '../lib/painel'
 import { HEX_CULTURA } from '../lib/opcoes'
 import { fmtN, uuid } from '../lib/formato'
 import { apagar, restaurar, salvar } from '../lib/sync'
@@ -92,7 +92,7 @@ export function Mapa({ abrirTalhao }: { abrirTalhao: (id: string) => void }) {
       const emEdicao = ed?.talhao?.id === t.id
       const c = cicloAtual(t.id, d.ciclos)
       const cor = HEX_CULTURA[c?.cultura ?? 'Pousio'] ?? '#8a8270'
-      const alerta = d.campo.some((x) => x.talhao_id === t.id && x.status === 'Aplicação indicada')
+      const alerta = resumoTalhao(t, d).cor === 'critico'
       const sel = selecionado === t.id
       const poli = L.polygon(pts, {
         color: alerta ? '#e5533d' : sel ? '#ffffff' : 'rgba(255,255,255,0.75)', weight: sel || alerta ? 3 : 1.5,

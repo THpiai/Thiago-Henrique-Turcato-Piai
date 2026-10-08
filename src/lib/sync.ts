@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { db, gravarMeta, TABELAS_CADASTRO, TABELAS_REGISTRO, type TabelaSync } from './db'
 import type { Ciclo, Operacao, OperacaoProduto } from './tipos'
 
-type Cliente = Pick<SupabaseClient, 'from'>
+type Cliente = Pick<SupabaseClient, 'from'> & Partial<Pick<SupabaseClient, 'storage'>>
 type Linha = Record<string, unknown> & { id: string }
 
 const DIAS_HISTORICO = 180
@@ -117,7 +117,7 @@ export async function enviar(cli: Cliente): Promise<'ok' | 'sem-rede' | 'com-err
 export async function receber(cli: Cliente): Promise<boolean> {
   const desde = new Date(Date.now() - DIAS_HISTORICO * 864e5).toISOString()
   const filtro: Partial<Record<TabelaSync, [string, string]>> = {
-    operacoes: ['data_hora', desde], campo: ['data_hora', desde],
+    operacoes: ['data_hora', desde], campo: ['data_hora', desde], estadios: ['data_hora', desde],
     estoque_mov: ['data', desde.slice(0, 10)], chuva: ['data', desde.slice(0, 10)],
   }
   const baixados: [TabelaSync, Linha[]][] = []
@@ -155,8 +155,19 @@ export async function receber(cli: Cliente): Promise<boolean> {
   return true
 }
 
+/** Fotos dos problemas sobem depois dos registros; até lá ficam no celular e aparecem dele. */
+export async function enviarFotos(cli: Cliente) {
+  if (!cli.storage) return
+  for (const f of await db.fotos.where('enviada').equals(0).toArray()) {
+    const { error } = await cli.storage.from('fotos').upload(f.path, f.blob, { upsert: true, contentType: f.blob.type || 'image/jpeg' })
+    if (error && !/exists/i.test(error.message)) return
+    await db.fotos.update(f.path, { enviada: 1 })
+  }
+}
+
 export async function sincronizar(cli: Cliente) {
   const r = await enviar(cli)
+  if (r !== 'sem-rede') await enviarFotos(cli).catch(() => {})
   if (r !== 'sem-rede') await receber(cli)
   avisar()
   return r
@@ -167,7 +178,7 @@ export function iniciarSync(cli: Cliente) {
   const vai = () => { if (navigator.onLine) void sincronizar(cli) }
   window.addEventListener('online', vai)
   const relogio = setInterval(vai, 60_000)
-  const aposSalvar = () => { if (navigator.onLine) void enviar(cli) }
+  const aposSalvar = () => { if (navigator.onLine) void enviar(cli).then(() => enviarFotos(cli)).catch(() => {}) }
   aoSalvar.add(aposSalvar)
   const tira = () => void aoSalvar.delete(aposSalvar)
   vai()

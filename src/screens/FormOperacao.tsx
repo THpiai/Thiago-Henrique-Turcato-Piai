@@ -4,7 +4,7 @@ import { useLive, useSessao, useGps } from '../lib/hooks'
 import { CULTURAS, TIPOS_OPERACAO } from '../lib/opcoes'
 import { agoraLocal, fmtN, num, uuid } from '../lib/formato'
 import { climaNaHora, sedeDoTalhao } from '../lib/painel'
-import { cicloAberto, nomeSafra, diaLocal, TIPOS_COLHEITA } from '../lib/safra'
+import { cicloAberto, grupoSafra, nomeSafra, diaLocal, TIPOS_COLHEITA } from '../lib/safra'
 import { doseMercado, referenciaCultura, referenciaInsumo } from '../lib/mercado'
 import { salvarOperacao } from '../lib/sync'
 import { Aviso, Escolha, Rotulo, SeletorTalhao } from '../components/ui'
@@ -120,7 +120,7 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
 
       {talhao && tipo && (
         <p className="liga-safra">
-          {aberto ? <>Entra na safra <b>{aberto.safra} · {aberto.cultura}</b>{aberto.status === 'Planejado' && plantio ? ' e ela passa para "em andamento"' : ''}.</>
+          {aberto ? <>Entra na safra <b>{grupoSafra(aberto)} · {aberto.cultura}</b>{aberto.status === 'Planejado' && plantio ? ' e ela passa para "em andamento"' : ''}.</>
             : plantio ? <>Este talhão não tem safra aberta. Escolha a cultura e a safra é criada sozinha.</>
             : <>Este talhão não tem safra aberta. A operação fica só na linha do tempo do talhão.</>}
         </p>

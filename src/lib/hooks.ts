@@ -33,6 +33,7 @@ export function useDados(): Dados | undefined {
     saldos: await db.saldos.toArray(),
     sedes: await db.sedes.toArray(),
     insumos: await db.insumos.toArray(),
+    estadios: (await db.estadios.toArray()).filter(vivo),
     }
   })
 }
