@@ -8,6 +8,7 @@ import { apagar, restaurar, salvar } from '../lib/sync'
 import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
 import { Aviso, Escolha, Rotulo } from '../components/ui'
 import { Icone } from '../components/Icone'
+import { doseMercado, INSUMOS_MERCADO, precoMercado, referenciaCultura, referenciaInsumo } from '../lib/mercado'
 import type { Ciclo, Insumo } from '../lib/tipos'
 
 export function Mais({ ir }: { ir: (tela: string) => void }) {
@@ -76,6 +77,8 @@ function FormCicloCampos({ talhaoId, talhaoNome, c, pronto }: { talhaoId: string
   const s = (k: string) => (v: string) => setF((x) => ({ ...x, [k]: v }))
   const cana = f.cultura === 'Cana-de-açúcar'
   const estadios = cana ? ESTADIOS_CANA : ESTADIOS_GRAOS
+  const ref = f.cultura ? referenciaCultura(f.cultura, f.safra) : undefined
+  const ph = (v?: number | null, u = '') => (v != null ? `(padrão mercado: ${fmtN(v)}${u})` : '')
 
   async function gravar(e: FormEvent) {
     e.preventDefault()
@@ -105,19 +108,20 @@ function FormCicloCampos({ talhaoId, talhaoNome, c, pronto }: { talhaoId: string
       <Escolha t="Cultura" opcoes={CULTURAS} valor={f.cultura as (typeof CULTURAS)[number]} muda={s('cultura')} />
       <div className="duas">
         <Rotulo t="Cultivar / variedade"><input value={f.cultivar} onChange={(e) => s('cultivar')(e.target.value)} /></Rotulo>
-        <Rotulo t="Ciclo da cultivar (dias)"><input inputMode="numeric" value={f.ciclo_cultivar_dias} onChange={(e) => s('ciclo_cultivar_dias')(e.target.value)} /></Rotulo>
+        <Rotulo t="Ciclo da cultivar (dias)" dica={ref?.ciclo_dias ? 'Em branco: usa o padrão mercado' : undefined}><input inputMode="numeric" value={f.ciclo_cultivar_dias} onChange={(e) => s('ciclo_cultivar_dias')(e.target.value)} placeholder={ph(ref?.ciclo_dias, ' dias')} /></Rotulo>
       </div>
       <div className="duas">
         <Rotulo t={cana ? 'Plantio / último corte' : 'Data de plantio'}><input type="date" value={f.data_plantio} onChange={(e) => s('data_plantio')(e.target.value)} /></Rotulo>
-        {!cana && <Rotulo t="População (plantas/ha)"><input inputMode="numeric" value={f.populacao_plantas_ha} onChange={(e) => s('populacao_plantas_ha')(e.target.value)} /></Rotulo>}
+        {!cana && <Rotulo t="População (plantas/ha)"><input inputMode="numeric" value={f.populacao_plantas_ha} onChange={(e) => s('populacao_plantas_ha')(e.target.value)} placeholder={ph(ref?.populacao_ha)} /></Rotulo>}
         {cana && <Rotulo t="Corte nº"><input inputMode="numeric" value={f.corte_cana} onChange={(e) => s('corte_cana')(e.target.value)} /></Rotulo>}
       </div>
+      <p className="dica">Plantio, cultivar, produção e colheita também se preenchem sozinhos pelas operações registradas no talhão. O estádio, quando não anotado nos últimos 15 dias, é estimado pelos dias de plantio.</p>
       <Escolha t="Estádio atual" opcoes={estadios} valor={f.estadio_atual} muda={s('estadio_atual')} />
       <fieldset>
         <legend>Colheita e produção</legend>
         <div className="duas">
           <Rotulo t="Colheita prevista" dica="Em branco: plantio + ciclo da cultivar"><input type="date" value={f.colheita_prevista} onChange={(e) => s('colheita_prevista')(e.target.value)} /></Rotulo>
-          <Rotulo t="Meta por ha"><input inputMode="decimal" value={f.meta_por_ha} onChange={(e) => s('meta_por_ha')(e.target.value)} placeholder={cana ? 't/ha' : 'sc/ha'} /></Rotulo>
+          <Rotulo t="Meta por ha"><input inputMode="decimal" value={f.meta_por_ha} onChange={(e) => s('meta_por_ha')(e.target.value)} placeholder={ph(ref?.produtividade_ha, cana ? ' t/ha' : ' sc/ha') || (cana ? 't/ha' : 'sc/ha')} /></Rotulo>
         </div>
         <div className="duas">
           <Rotulo t="Colhido em"><input type="date" value={f.data_colheita} onChange={(e) => s('data_colheita')(e.target.value)} /></Rotulo>
@@ -150,7 +154,7 @@ export function Insumos({ voltar }: { voltar: () => void }) {
       <ul className="lista">
         {lista.map((i) => (
           <li key={i.id} onClick={() => setEdit(i)} className={i.ativo === false ? 'mudo' : ''}>
-            <b>{i.nome}</b><small>{i.tipo} · {i.unidade}{i.estoque_minimo != null ? ` · mínimo ${i.estoque_minimo}` : ''}{i.ativo === false ? ' · inativo' : ''}</small>
+            <b>{i.nome}</b><small>{i.tipo} · {i.unidade}{i.ingrediente_ativo ? ` · ${i.ingrediente_ativo}` : ''}{i.estoque_minimo != null ? ` · mínimo ${i.estoque_minimo}` : ''}{i.ativo === false ? ' · inativo' : ''}</small>
           </li>
         ))}
       </ul>
@@ -159,26 +163,80 @@ export function Insumos({ voltar }: { voltar: () => void }) {
 }
 
 function FormInsumo({ i, pronto }: { i: Partial<Insumo>; pronto: () => void }) {
-  const [nome, setNome] = useState(i.nome ?? '')
-  const [tipo, setTipo] = useState(i.tipo ?? '')
-  const [unidade, setUnidade] = useState(i.unidade ?? '')
-  const [minimo, setMinimo] = useState(String(i.estoque_minimo ?? ''))
+  const [f, setF] = useState<Record<string, string>>(() => ({
+    nome: i.nome ?? '', tipo: i.tipo ?? '', unidade: i.unidade ?? '', minimo: String(i.estoque_minimo ?? ''),
+    fabricante: i.fabricante ?? '', ingrediente_ativo: i.ingrediente_ativo ?? '', classe: i.classe ?? '',
+    dose: i.dose_ha_padrao != null ? String(i.dose_ha_padrao).replace('.', ',') : '',
+    preco: i.preco_unitario != null ? String(i.preco_unitario).replace('.', ',') : '',
+  }))
   const [ativo, setAtivo] = useState(i.ativo ?? true)
+  const s = (k: string) => (v: string) => setF((x) => ({ ...x, [k]: v }))
+  const ref = referenciaInsumo(f.nome)
+  const doseRef = ref ? (ref.dose_min_ha != null && ref.dose_max_ha != null ? (ref.dose_min_ha + ref.dose_max_ha) / 2 : ref.dose_min_ha ?? ref.dose_max_ha ?? null) : null
+  const pad: Record<string, string | null> = {
+    fabricante: ref?.fabricante ?? null, ingrediente_ativo: ref?.ingrediente_ativo ?? null, classe: ref?.classe ?? null,
+    tipo: ref?.tipo ?? null, unidade: ref?.unidade ?? null,
+    dose: doseRef != null ? String(Math.round(doseRef * 1000) / 1000).replace('.', ',') : null,
+    preco: ref?.preco != null ? String(ref.preco).replace('.', ',') : null,
+  }
+  const vazios = Object.keys(pad).filter((k) => pad[k] && !f[k])
+  const usarTudo = () => setF((x) => ({ ...x, ...Object.fromEntries(vazios.map((k) => [k, pad[k]!])) }))
+
   async function gravar(e: FormEvent) {
     e.preventDefault()
-    await salvar('insumos', [{ id: i.id ?? uuid(), nome: nome.trim(), tipo, unidade, estoque_minimo: num(minimo), ativo }])
+    await salvar('insumos', [{
+      id: i.id ?? uuid(), nome: f.nome.trim(), tipo: f.tipo, unidade: f.unidade, estoque_minimo: num(f.minimo), ativo,
+      fabricante: f.fabricante || null, ingrediente_ativo: f.ingrediente_ativo || null, classe: f.classe || null,
+      dose_ha_padrao: num(f.dose), preco_unitario: num(f.preco),
+    }])
     pronto()
   }
+  const Pad = ({ k, txt }: { k: string; txt?: string | null }) =>
+    pad[k] && !f[k] ? <button type="button" className="mercado" onClick={() => s(k)(pad[k]!)}>(padrão mercado: {txt ?? pad[k]}) usar</button> : null
+
   return (
     <form className="tela" onSubmit={gravar}>
       <button type="button" className="voltar" onClick={pronto}>‹ Insumos</button>
       <h1>{i.id ? 'Insumo' : 'Novo insumo'}</h1>
-      <Rotulo t="Nome comercial"><input required value={nome} onChange={(e) => setNome(e.target.value)} /></Rotulo>
-      <Escolha t="Tipo" opcoes={TIPOS_INSUMO} valor={tipo as (typeof TIPOS_INSUMO)[number]} muda={setTipo} />
-      <Escolha t="Unidade de estoque" dica="A dose por hectare usa esta mesma unidade" opcoes={UNIDADES} valor={unidade as (typeof UNIDADES)[number]} muda={setUnidade} />
-      <Rotulo t="Estoque mínimo" dica="Abaixo disso aparece alerta no início"><input inputMode="decimal" value={minimo} onChange={(e) => setMinimo(e.target.value)} /></Rotulo>
+      <Rotulo t="Nome comercial" dica="Comece a digitar: os produtos mais usados já têm dados de mercado">
+        <input required value={f.nome} onChange={(e) => s('nome')(e.target.value)} list="mercado-insumos" autoComplete="off" />
+      </Rotulo>
+      <datalist id="mercado-insumos">{INSUMOS_MERCADO.map((r) => <option key={r.nome} value={r.nome}>{r.ingrediente_ativo ?? ''}</option>)}</datalist>
+      {ref && (
+        <div className="ref-mercado">
+          <b>Padrão mercado encontrado:</b> {ref.nome}{ref.ingrediente_ativo ? ` · ${ref.ingrediente_ativo}` : ''}
+          <small>{[doseMercado(ref) && `Dose de bula ${doseMercado(ref)}`, precoMercado(ref)].filter(Boolean).join(' · ') || 'Sem dose ou preço na base'}</small>
+          {vazios.length > 0 && <button type="button" className="secundario" onClick={usarTudo}>Preencher o que está vazio</button>}
+        </div>
+      )}
+      <Escolha t="Tipo" opcoes={TIPOS_INSUMO} valor={f.tipo as (typeof TIPOS_INSUMO)[number]} muda={s('tipo')} />
+      <Pad k="tipo" />
+      <Escolha t="Unidade de estoque" dica="A dose por hectare usa esta mesma unidade" opcoes={UNIDADES} valor={f.unidade as (typeof UNIDADES)[number]} muda={s('unidade')} />
+      <Pad k="unidade" />
+      <div className="duas">
+        <div><Rotulo t="Fabricante"><input value={f.fabricante} onChange={(e) => s('fabricante')(e.target.value)} placeholder={pad.fabricante ? `(${pad.fabricante})` : ''} /></Rotulo><Pad k="fabricante" /></div>
+        <div><Rotulo t="Classe"><input value={f.classe} onChange={(e) => s('classe')(e.target.value)} placeholder={pad.classe ? `(${pad.classe})` : 'Herbicida, fungicida…'} /></Rotulo><Pad k="classe" /></div>
+      </div>
+      <Rotulo t="Ingrediente ativo"><input value={f.ingrediente_ativo} onChange={(e) => s('ingrediente_ativo')(e.target.value)} placeholder={pad.ingrediente_ativo ? `(${pad.ingrediente_ativo})` : ''} /></Rotulo>
+      <Pad k="ingrediente_ativo" />
+      <div className="duas">
+        <div>
+          <Rotulo t={`Dose padrão (${f.unidade || 'un'}/ha)`} dica="Sugerida ao registrar a operação">
+            <input inputMode="decimal" value={f.dose} onChange={(e) => s('dose')(e.target.value)} placeholder={ref ? `(${doseMercado(ref) ?? ''})` : ''} />
+          </Rotulo>
+          <Pad k="dose" txt={doseMercado(ref)} />
+        </div>
+        <div>
+          <Rotulo t={`Preço (R$/${f.unidade || 'un'})`} dica="Usado no custo/ha enquanto não houver entrada com nota">
+            <input inputMode="decimal" value={f.preco} onChange={(e) => s('preco')(e.target.value)} placeholder={pad.preco ? `(${pad.preco})` : ''} />
+          </Rotulo>
+          <Pad k="preco" txt={precoMercado(ref)} />
+        </div>
+      </div>
+      <Rotulo t="Estoque mínimo" dica="Abaixo disso aparece alerta no início"><input inputMode="decimal" value={f.minimo} onChange={(e) => s('minimo')(e.target.value)} /></Rotulo>
       <label className="check"><input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Em uso</label>
-      <button className="primario fixo" disabled={!nome.trim() || !tipo || !unidade}>Salvar</button>
+      {ref?.preco_url && <p className="fonte">Fonte do preço: <a href={ref.preco_url} target="_blank" rel="noreferrer">{ref.preco_fonte ?? 'link'}</a>{ref.preco_data ? ` (${ref.preco_data})` : ''}. Valores de referência, confira com sua revenda.</p>}
+      <button className="primario fixo" disabled={!f.nome.trim() || !f.tipo || !f.unidade}>Salvar</button>
     </form>
   )
 }

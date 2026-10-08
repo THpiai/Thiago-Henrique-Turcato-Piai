@@ -1,10 +1,12 @@
 import { diasDesde } from './formato'
-import type { Campo, Chuva, Ciclo, ClimaHora, Operacao, OperacaoProduto, Saldo, Sede, Talhao } from './tipos'
+import type { Campo, Chuva, Ciclo, ClimaHora, Insumo, Operacao, OperacaoProduto, Saldo, Sede, Talhao } from './tipos'
+import { diagnosticoSafra, diasDoCiclo, type CicloVivo, type Diagnostico } from './safra'
+import { referenciaInsumo } from './mercado'
 import { centro, contornoParaPontos, distanciaM, type Ponto } from './geo'
 
 export type Dados = {
   talhoes: Talhao[]; ciclos: Ciclo[]; operacoes: Operacao[]; produtos: OperacaoProduto[]
-  campo: Campo[]; chuva: Chuva[]; saldos: Saldo[]; sedes: Sede[]
+  campo: Campo[]; chuva: Chuva[]; saldos: Saldo[]; sedes: Sede[]; insumos?: Insumo[]
 }
 
 /** Sede mais próxima do talhão (pelo centro do desenho). Sem desenho: a sede Flor da Mata. */
@@ -54,7 +56,7 @@ export function chuvaPeriodo(talhaoId: string | null, chuva: Chuva[], dias: numb
 
 export type Resumo = {
   talhao: Talhao
-  ciclo?: Ciclo
+  ciclo?: CicloVivo
   dap: number | null              // dias após o plantio
   diasParaColheita: number | null
   progresso: number | null        // 0–1 do ciclo da cultivar
@@ -65,45 +67,66 @@ export type Resumo = {
   custoHa: number | null
   produtividade: number | null    // produção por hectare (sc/ha ou t/ha)
   vsMeta: number | null           // produtividade ÷ meta
+  custoEstimado: boolean          // parte do custo veio do preço de referência
+  operacoesCiclo: Operacao[]
+  estado: Diagnostico
+}
+
+/** Preço por unidade do insumo: média das entradas no estoque; senão o preço cadastrado; senão o padrão mercado. */
+export function precoInsumo(insumoId: string, d: Pick<Dados, 'saldos' | 'insumos'>): { preco: number; estimado: boolean } | null {
+  const cm = d.saldos.find((s) => s.insumo_id === insumoId)?.custo_medio
+  if (cm != null) return { preco: Number(cm), estimado: false }
+  const ins = d.insumos?.find((i) => i.id === insumoId)
+  if (ins?.preco_unitario != null) return { preco: Number(ins.preco_unitario), estimado: false }
+  const ref = referenciaInsumo(ins?.nome)
+  if (ref?.preco != null && ref.unidade === ins?.unidade) return { preco: ref.preco, estimado: true }
+  return null
 }
 
 export function resumoTalhao(t: Talhao, d: Dados): Resumo {
-  const ciclo = cicloAtual(t.id, d.ciclos)
+  const ciclo = cicloAtual(t.id, d.ciclos) as CicloVivo | undefined
   const sede = sedeDoTalhao(t, d.sedes)
   const emCampo = ciclo?.status === 'Em andamento'
   const dap = emCampo ? diasDesde(ciclo?.data_plantio) : null
+  const diasCiclo = ciclo ? diasDoCiclo(ciclo).dias : null
   const prevista = ciclo?.colheita_prevista
-    ?? (ciclo?.data_plantio && ciclo.ciclo_cultivar_dias
-      ? new Date(new Date(ciclo.data_plantio + 'T12:00:00').getTime() + ciclo.ciclo_cultivar_dias * 864e5).toISOString().slice(0, 10)
+    ?? (ciclo?.data_plantio && diasCiclo
+      ? new Date(new Date(ciclo.data_plantio + 'T12:00:00').getTime() + diasCiclo * 864e5).toISOString().slice(0, 10)
       : null)
   const faltam = emCampo && prevista ? -(diasDesde(prevista) ?? 0) : null
-  const progresso = emCampo && dap != null && ciclo?.ciclo_cultivar_dias ? Math.min(1, Math.max(0, dap / ciclo.ciclo_cultivar_dias)) : null
+  const progresso = emCampo && dap != null && diasCiclo ? Math.min(1, Math.max(0, dap / diasCiclo)) : null
 
   const ops = d.operacoes.filter((o) => o.talhao_id === t.id).sort((a, b) => b.data_hora.localeCompare(a.data_hora))
   const opsCiclo = ciclo ? ops.filter((o) => o.ciclo_id === ciclo.id) : []
-  const custo = new Map(d.saldos.map((s) => [s.insumo_id, s.custo_medio ?? null]))
-  let custoTotal = 0, temCusto = false
+  let custoTotal = 0, temCusto = false, custoEstimado = false
   const idsOps = new Set(opsCiclo.map((o) => o.id))
   for (const p of d.produtos) {
     if (!idsOps.has(p.operacao_id)) continue
-    const cm = custo.get(p.insumo_id)
+    const preco = precoInsumo(p.insumo_id, d)
     const op = opsCiclo.find((o) => o.id === p.operacao_id)
     const qtd = p.quantidade_total ?? p.dose_ha * Number(op?.area_ha ?? t.area_ha)
-    if (cm != null) { custoTotal += qtd * cm; temCusto = true }
+    if (preco) { custoTotal += qtd * preco.preco; temCusto = true; custoEstimado ||= preco.estimado }
   }
   const area = Number(t.area_ha)
   const produtividade = ciclo?.producao != null && area > 0 ? ciclo.producao / area : null
 
+  const chuva7 = chuvaPeriodo(t.id, d.chuva, 7, sede?.id)
+  const chuva30 = chuvaPeriodo(t.id, d.chuva, 30, sede?.id)
+  const custoHa = temCusto && area > 0 ? custoTotal / area : null
+  const campoT = d.campo.filter((c) => c.talhao_id === t.id)
+
   return {
     talhao: t, ciclo, dap, diasParaColheita: faltam, progresso,
     ultimaOperacao: ops[0],
-    alertas: d.campo.filter((c) => c.talhao_id === t.id && MIP_ATIVO(c))
-      .sort((a, b) => peso(b) - peso(a)),
-    chuva7: chuvaPeriodo(t.id, d.chuva, 7, sede?.id),
-    chuva30: chuvaPeriodo(t.id, d.chuva, 30, sede?.id),
-    custoHa: temCusto && area > 0 ? custoTotal / area : null,
-    produtividade,
+    alertas: campoT.filter(MIP_ATIVO).sort((a, b) => peso(b) - peso(a)),
+    chuva7, chuva30, custoHa, produtividade, custoEstimado, operacoesCiclo: opsCiclo,
     vsMeta: produtividade != null && ciclo?.meta_por_ha ? produtividade / ciclo.meta_por_ha : null,
+    estado: diagnosticoSafra({
+      ciclo, areaHa: area, dap, diasParaColheita: faltam, operacoes: ops,
+      campo: ciclo?.data_plantio ? campoT.filter((c) => c.data_hora.slice(0, 10) >= ciclo.data_plantio!) : campoT,
+      chuva7, chuva15: chuvaPeriodo(t.id, d.chuva, 15, sede?.id), chuva30,
+      produtividade, custoHa, custoEstimado,
+    }),
   }
 }
 

@@ -336,3 +336,40 @@ fieldset > .secundario { margin-bottom: 0.8rem; }
 .lista li .confirmar { margin-right: -2.4rem; }
 .lista li .confirmar .mini { position: static; }
 .lista li:has(.confirmar) { padding-right: 0.9rem; }
+
+/* ── Estado da safra (conclusão automática) ─────────────────────────────── */
+.selo { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 650; letter-spacing: 0.02em; border-radius: 99px; padding: 0.15rem 0.6rem; white-space: nowrap; background: var(--verde-claro); color: var(--verde-texto); }
+.selo::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.selo.atencao { background: var(--aviso-claro); color: var(--aviso); }
+.selo.critico { background: var(--alerta-claro); color: var(--alerta); }
+.selo.sem-dados { background: var(--papel-2); color: var(--mudo); }
+.estado-safra .topo { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.estado-safra .topo h2 { margin: 0; }
+.estado-safra { border-left: 4px solid var(--verde); }
+.estado-safra.atencao { border-left-color: var(--aviso); }
+.estado-safra.critico { border-left-color: var(--alerta); }
+.estado-safra.sem-dados { border-left-color: var(--linha-forte); }
+.trilha { margin: 0.8rem 0 0.2rem; }
+.trilha .barra { height: 6px; background: var(--linha); border-radius: 99px; overflow: hidden; }
+.trilha .barra span { display: block; height: 100%; background: var(--verde); border-radius: 99px; }
+.trilha small { margin-top: 0.35rem; }
+.pontos { list-style: none; margin: 0.8rem 0 0; padding: 0; display: grid; gap: 0.45rem; }
+.pontos li { position: relative; padding-left: 1.1rem; font-size: 0.92rem; line-height: 1.4; }
+.pontos li::before { content: ''; position: absolute; left: 0; top: 0.5em; width: 7px; height: 7px; border-radius: 50%; background: var(--mudo); }
+.pontos li.bom::before { background: var(--verde); }
+.pontos li.atencao::before { background: var(--aviso); }
+.pontos li.critico::before { background: var(--alerta); }
+.pontos li.critico { color: var(--alerta); font-weight: 550; }
+.pontos li.info { color: var(--mudo); }
+.talhao .topo .selo { margin-left: auto; margin-right: 0.4rem; }
+.talhao .motivo { font-size: 0.8rem; line-height: 1.35; text-align: left; }
+.talhao .motivo.critico { color: var(--alerta); }
+.talhao .motivo.atencao { color: var(--aviso); }
+.liga-safra { margin: 0.2rem 0 0.6rem; padding: 0.55rem 0.8rem; border-radius: var(--raio-p); background: var(--verde-claro); color: var(--verde-texto); font-size: 0.88rem; }
+
+/* ── Padrão mercado ──────────────────────────────────────────────────────── */
+button.mercado { display: inline-block; background: none; border: 0; padding: 0.15rem 0; margin: -0.2rem 0 0.4rem; color: var(--ouro); font-size: 0.8rem; font-weight: 550; text-align: left; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.ref-mercado { display: grid; gap: 0.35rem; padding: 0.7rem 0.85rem; margin: 0 0 0.8rem; border-radius: var(--raio-p); background: var(--ouro-claro); border: 1px solid color-mix(in srgb, var(--ouro) 30%, transparent); font-size: 0.9rem; }
+.ref-mercado button { justify-self: start; }
+.fonte { font-size: 0.78rem; color: var(--mudo); }
+.fonte a { color: inherit; }

@@ -1,0 +1,1045 @@
+{
+ "gerado_em": "2026-10-08",
+ "insumos": [
+  {
+   "nome": "Roundup WG",
+   "fabricante": "Monsanto/Bayer",
+   "ingrediente_ativo": "Glifosato sal de amônio 792,5 g/kg (720 g/kg e.a.)",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "kg",
+   "dose_min_ha": 0.5,
+   "dose_max_ha": 3.5,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Cana-de-açúcar"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/roundup-wg",
+   "obs": "Sem preço de mercado encontrado para a formulação WG; Aegro cita glifosato em grânulos +24,8% a/a no RS sem valor absoluto."
+  },
+  {
+   "nome": "Zapp QI 620",
+   "fabricante": "Syngenta",
+   "ingrediente_ativo": "Glifosato sal de potássio 620 g/L (500 g/L e.a.)",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "L",
+   "dose_min_ha": 0.7,
+   "dose_max_ha": 4.2,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Cana-de-açúcar"
+   ],
+   "preco": 25.5,
+   "preco_fonte": "Aegro Insights (NF-e, MG/GO/MT/PR/SP)",
+   "preco_url": "https://aegro.com.br/blog/conta-pesa-bolso-preco-defensivos/",
+   "preco_data": "2026-05",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/zapp-qi-620",
+   "obs": "Preço derivado da simulação do artigo (mediana 6 meses). Soja/milho RR pós-emergência: 1,0–1,5 L/ha."
+  },
+  {
+   "nome": "Glifosato genérico (SL)",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "Glifosato",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "L",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Cana-de-açúcar"
+   ],
+   "preco": 25.8,
+   "preco_fonte": "Aegro Insights via Agrolink (NF-e, nacional)",
+   "preco_url": "https://www.agrolink.com.br/noticias/voce-pode-ter-pago-ate-68--mais-caro-no-mesmo-glifosato_517109.html",
+   "preco_data": "2026-07",
+   "dose_fonte": null,
+   "obs": "Mediana nacional safra 26/27 parcial; 25/26 fechada R$ 25,00/L; faixa R$ 20,40–34,33/L. Dose: ver bula do produto (ex.: Zapp QI 620)."
+  },
+  {
+   "nome": "DMA 806 BR (2,4-D 806 SL)",
+   "fabricante": "Corteva (CTVA)",
+   "ingrediente_ativo": "2,4-D dimetilamina 806 g/L (670 g/L e.a.)",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "L",
+   "dose_min_ha": 1.0,
+   "dose_max_ha": 1.5,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Cana-de-açúcar"
+   ],
+   "preco": 19.5,
+   "preco_fonte": "Aegro Insights (NF-e, mediana nacional 2,4-D 806)",
+   "preco_url": "https://aegro.com.br/blog/preco-24-d-fabricante-prazo-2627/",
+   "preco_data": "2026-07",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/dma-806-br",
+   "obs": "Preço é da molécula 2,4-D 806 g/L (todas as marcas), safra 26/27 abr–jul; 25/26 R$ 19,12/L."
+  },
+  {
+   "nome": "Select 240 EC (cletodim)",
+   "fabricante": "UPL",
+   "ingrediente_ativo": "Cletodim 240 g/L",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "L",
+   "dose_min_ha": 0.35,
+   "dose_max_ha": 1.0,
+   "culturas": [
+    "Soja",
+    "Milho"
+   ],
+   "preco": 34.5,
+   "preco_fonte": "Aegro Insights (NF-e, mediana nacional cletodim 240)",
+   "preco_url": "https://aegro.com.br/blog/cletodim-preco-marca-fabricante-26-27/",
+   "preco_data": "2026-07",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/select-240-ec",
+   "obs": "Milho: 0,30–0,50 L/ha. Preço da molécula (todas as marcas), abr–jul 2026; 25/26 R$ 36,00/L."
+  },
+  {
+   "nome": "Primóleo (atrazina)",
+   "fabricante": "Syngenta",
+   "ingrediente_ativo": "Atrazina 400 g/L",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "L",
+   "dose_min_ha": 5.0,
+   "dose_max_ha": 6.0,
+   "culturas": [
+    "Milho"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/primoleo",
+   "obs": "Preço não encontrado em fonte confiável."
+  },
+  {
+   "nome": "Dual Gold (S-metolacloro)",
+   "fabricante": "Syngenta",
+   "ingrediente_ativo": "S-metolacloro 960 g/L",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "L",
+   "dose_min_ha": 1.0,
+   "dose_max_ha": 3.0,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 38.0,
+   "preco_fonte": "Aegro Insights (NF-e, mediana RS)",
+   "preco_url": "https://aegro.com.br/blog/precos-agora-insumo-rs/",
+   "preco_data": "2026-09",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/dual-gold",
+   "obs": "Soja 1,25–2,0; milho 1,0–2,0; sorgo 1,0–1,5; cana 1,5–3,0 L/ha. Preço é do RS (sem dado MG)."
+  },
+  {
+   "nome": "Reglone (diquat)",
+   "fabricante": "Syngenta",
+   "ingrediente_ativo": "Diquate 200 g/L",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "L",
+   "dose_min_ha": 1.0,
+   "dose_max_ha": 3.5,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/reglone-diquat-s-nortox",
+   "obs": "Dessecação pré-colheita soja 1,0–2,0 L/ha; pré-semeadura 1,5–3,5 L/ha."
+  },
+  {
+   "nome": "Finale (glufosinato 200 SL)",
+   "fabricante": "BASF",
+   "ingrediente_ativo": "Glufosinato sal de amônio 200 g/L",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "L",
+   "dose_min_ha": 1.5,
+   "dose_max_ha": 3.0,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Cana-de-açúcar"
+   ],
+   "preco": 18.02,
+   "preco_fonte": "Aegro Insights (NF-e, mediana nacional glufosinato 200 SL)",
+   "preco_url": "https://aegro.com.br/blog/preco-glufosinato-marca-generico/",
+   "preco_data": "2026-07",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/finale",
+   "obs": "Preço da molécula (todas as marcas); marca BASF mediana R$ 24,00/L (25/26). Cana: 4,0 L/ha."
+  },
+  {
+   "nome": "Velpar K WG",
+   "fabricante": "Ouro Fino (registrante)",
+   "ingrediente_ativo": "Diurom 468 g/kg + hexazinona 132 g/kg",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "kg",
+   "dose_min_ha": 1.8,
+   "dose_max_ha": 3.0,
+   "culturas": [
+    "Cana-de-açúcar"
+   ],
+   "preco": 53.87,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/velpar-k-wg"
+  },
+  {
+   "nome": "Plateau",
+   "fabricante": "BASF",
+   "ingrediente_ativo": "Imazapique 700 g/kg",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "kg",
+   "dose_min_ha": 0.15,
+   "dose_max_ha": 0.21,
+   "culturas": [
+    "Cana-de-açúcar"
+   ],
+   "preco": 398.03,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/plateau"
+  },
+  {
+   "nome": "Dinamic",
+   "fabricante": "UPL",
+   "ingrediente_ativo": "Amicarbazona 700 g/kg",
+   "tipo": "Defensivo",
+   "classe": "Herbicida",
+   "unidade": "kg",
+   "dose_min_ha": 0.6,
+   "dose_max_ha": 2.0,
+   "culturas": [
+    "Cana-de-açúcar"
+   ],
+   "preco": 115.75,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/dinamic-dinamic-70-wdg-xtron-700-wg-herbicide-amitron-700-wg-herbicide-dinamic-700-wg-orion"
+  },
+  {
+   "nome": "Fox Xpro",
+   "fabricante": "Bayer",
+   "ingrediente_ativo": "Bixafem 125 + protioconazol 175 + trifloxistrobina 150 g/L",
+   "tipo": "Defensivo",
+   "classe": "Fungicida",
+   "unidade": "L",
+   "dose_min_ha": 0.5,
+   "dose_max_ha": 0.5,
+   "culturas": [
+    "Soja",
+    "Milho"
+   ],
+   "preco": 268.0,
+   "preco_fonte": "Aegro Insights (NF-e, MG/GO/MT/PR/SP, 12 meses)",
+   "preco_url": "https://aegro.com.br/blog/conta-pesa-bolso-preco-defensivos/",
+   "preco_data": "2026-05",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/fox-xpro",
+   "obs": "Milho 0,4–0,5 L/ha. Ferrugem principal no RS: R$ 272,16/L (ago/2026)."
+  },
+  {
+   "nome": "Elatus",
+   "fabricante": "Syngenta",
+   "ingrediente_ativo": "Azoxistrobina 300 + benzovindiflupir 150 g/kg",
+   "tipo": "Defensivo",
+   "classe": "Fungicida",
+   "unidade": "kg",
+   "dose_min_ha": 0.2,
+   "dose_max_ha": 0.3,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Cana-de-açúcar"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/elatus",
+   "obs": "Milho e cana: 0,1–0,2 kg/ha."
+  },
+  {
+   "nome": "Sphere Max",
+   "fabricante": "Bayer",
+   "ingrediente_ativo": "Trifloxistrobina 375 + ciproconazol 160 g/L",
+   "tipo": "Defensivo",
+   "classe": "Fungicida",
+   "unidade": "L",
+   "dose_min_ha": 0.15,
+   "dose_max_ha": 0.3,
+   "culturas": [
+    "Soja",
+    "Milho"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/sphere-max",
+   "obs": "Milho 0,2 L/ha."
+  },
+  {
+   "nome": "Ativum",
+   "fabricante": "BASF",
+   "ingrediente_ativo": "Epoxiconazol 50 + fluxapiroxade 50 + piraclostrobina 81 g/L",
+   "tipo": "Defensivo",
+   "classe": "Fungicida",
+   "unidade": "L",
+   "dose_min_ha": 0.8,
+   "dose_max_ha": 1.0,
+   "culturas": [
+    "Soja",
+    "Milho"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/ativum",
+   "obs": "Milho 0,8–1,2 L/ha."
+  },
+  {
+   "nome": "Belyan",
+   "fabricante": "BASF",
+   "ingrediente_ativo": "Mefentrifluconazol 133,3 + piraclostrobina 177,8 + fluxapiroxade 88,9 g/L",
+   "tipo": "Defensivo",
+   "classe": "Fungicida",
+   "unidade": "L",
+   "dose_min_ha": 0.5,
+   "dose_max_ha": 0.7,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 222.0,
+   "preco_fonte": "Aegro Insights (NF-e, MG/GO/MT/PR/SP, 12 meses)",
+   "preco_url": "https://aegro.com.br/blog/conta-pesa-bolso-preco-defensivos/",
+   "preco_data": "2026-05",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/belyan",
+   "obs": "Milho/sorgo 0,56–0,66; cana 0,5–0,75 L/ha."
+  },
+  {
+   "nome": "Unizeb Gold (mancozebe)",
+   "fabricante": "UPL",
+   "ingrediente_ativo": "Mancozebe 750 g/kg",
+   "tipo": "Defensivo",
+   "classe": "Fungicida",
+   "unidade": "kg",
+   "dose_min_ha": 1.5,
+   "dose_max_ha": 3.0,
+   "culturas": [
+    "Soja",
+    "Milho"
+   ],
+   "preco": 29.89,
+   "preco_fonte": "Aegro Insights (NF-e, MG/GO/MT/PR/SP)",
+   "preco_url": "https://aegro.com.br/blog/conta-pesa-bolso-preco-defensivos/",
+   "preco_data": "2026-05",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/unizeb-gold-disarm-vigold-mancozeb-ccab-750-wg",
+   "obs": "Preço derivado da simulação do artigo (mediana 6 meses)."
+  },
+  {
+   "nome": "Clorotalonil 720 SC (genérico)",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "Clorotalonil 720 g/L",
+   "tipo": "Defensivo",
+   "classe": "Fungicida",
+   "unidade": "L",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho"
+   ],
+   "preco": 29.5,
+   "preco_fonte": "Aegro Insights (NF-e, mediana nacional)",
+   "preco_url": "https://aegro.com.br/blog/clorotalonil-preco-tendencia-prazo-26-27/",
+   "preco_data": "2026-07",
+   "dose_fonte": null,
+   "obs": "Safra 26/27 parcial (abr–jul). Dose: consultar bula do produto (não obtida)."
+  },
+  {
+   "nome": "Engeo Pleno S",
+   "fabricante": "Syngenta",
+   "ingrediente_ativo": "Tiametoxam 141 + lambda-cialotrina 106 g/L",
+   "tipo": "Defensivo",
+   "classe": "Inseticida",
+   "unidade": "L",
+   "dose_min_ha": 0.075,
+   "dose_max_ha": 0.25,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 111.98,
+   "preco_fonte": "Aegro Insights (NF-e, mediana nacional abr–jul/2026)",
+   "preco_url": "https://aegro.com.br/blog/engeo-pleno-s-preco-fabricante-unico-26-27/",
+   "preco_data": "2026-07",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/engeo-pleno-s",
+   "obs": "Safra 25/26: nacional R$ 135,00/L; GO R$ 131,58; SP R$ 127,40. Milho 0,15–0,25; sorgo/cana (broca) 0,15–0,20 L/ha."
+  },
+  {
+   "nome": "Verdavis",
+   "fabricante": "Syngenta",
+   "ingrediente_ativo": "Isocicloseram 100 + lambda-cialotrina 150 g/L",
+   "tipo": "Defensivo",
+   "classe": "Inseticida",
+   "unidade": "L",
+   "dose_min_ha": 0.1,
+   "dose_max_ha": 0.25,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo"
+   ],
+   "preco": 475.0,
+   "preco_fonte": "Aegro Insights (NF-e, mediana nacional abr–jul/2026)",
+   "preco_url": "https://aegro.com.br/blog/verdavis-premio-lancamento-soja/",
+   "preco_data": "2026-07",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/verdavis-viambi",
+   "obs": "MG 25/26: R$ 490,00/L."
+  },
+  {
+   "nome": "Sperto",
+   "fabricante": "UPL",
+   "ingrediente_ativo": "Acetamiprido 250 + bifentrina 250 g/kg",
+   "tipo": "Defensivo",
+   "classe": "Inseticida",
+   "unidade": "kg",
+   "dose_min_ha": 0.25,
+   "dose_max_ha": 0.3,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 120.0,
+   "preco_fonte": "Aegro Insights (NF-e, MG/GO/MT/PR/SP, 12 meses)",
+   "preco_url": "https://aegro.com.br/blog/conta-pesa-bolso-preco-defensivos/",
+   "preco_data": "2026-05",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/sperto-bright-akom",
+   "obs": "Bula: formulação WG (kg); o artigo reporta R$ 120,00 'por L' — tratar como R$/kg com cautela. Milho/sorgo 0,2–0,3; cana 1,2–1,6 kg/ha."
+  },
+  {
+   "nome": "Connect",
+   "fabricante": "Bayer",
+   "ingrediente_ativo": "Imidacloprido 100 + beta-ciflutrina 12,5 g/L",
+   "tipo": "Defensivo",
+   "classe": "Inseticida",
+   "unidade": "L",
+   "dose_min_ha": 0.4,
+   "dose_max_ha": 1.0,
+   "culturas": [
+    "Soja",
+    "Milho"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/connect-estribo",
+   "obs": "Milho 0,5–1,0 L/ha."
+  },
+  {
+   "nome": "Perito 970 SG (acefato)",
+   "fabricante": "UPL",
+   "ingrediente_ativo": "Acefato 970 g/kg",
+   "tipo": "Defensivo",
+   "classe": "Inseticida",
+   "unidade": "kg",
+   "dose_min_ha": 0.4,
+   "dose_max_ha": 1.0,
+   "culturas": [
+    "Soja",
+    "Milho"
+   ],
+   "preco": 46.0,
+   "preco_fonte": "Aegro Insights (NF-e, mediana RS 25/26)",
+   "preco_url": "https://aegro.com.br/blog/preco-defensivos-rs-safra-25-26/",
+   "preco_data": "2026-04",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/perito-970-sg-brixor-lascar-97-df-lancer-97-df",
+   "obs": "Preço do acefato (duas principais marcas) no RS. Milho 0,9–1,2 kg/ha."
+  },
+  {
+   "nome": "Belt",
+   "fabricante": "Bayer",
+   "ingrediente_ativo": "Flubendiamida 480 g/L",
+   "tipo": "Defensivo",
+   "classe": "Inseticida",
+   "unidade": "L",
+   "dose_min_ha": 0.02,
+   "dose_max_ha": 0.15,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/belt",
+   "obs": "Milho/sorgo 0,10–0,15; cana 0,07–0,10 L/ha."
+  },
+  {
+   "nome": "Premio",
+   "fabricante": "FMC",
+   "ingrediente_ativo": "Clorantraniliprole 200 g/L",
+   "tipo": "Defensivo",
+   "classe": "Inseticida",
+   "unidade": "L",
+   "dose_min_ha": 0.01,
+   "dose_max_ha": 0.2,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/premio",
+   "obs": "Milho/sorgo 0,025–0,2 L/ha."
+  },
+  {
+   "nome": "Altacor",
+   "fabricante": "FMC",
+   "ingrediente_ativo": "Clorantraniliprole 350 g/kg",
+   "tipo": "Defensivo",
+   "classe": "Inseticida",
+   "unidade": "kg",
+   "dose_min_ha": 0.06,
+   "dose_max_ha": 0.45,
+   "culturas": [
+    "Cana-de-açúcar"
+   ],
+   "preco": 587.87,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/altacor"
+  },
+  {
+   "nome": "Regent 800 WG / Fipronil 800 WG",
+   "fabricante": "BASF (Regent) e genéricos",
+   "ingrediente_ativo": "Fipronil 800 g/kg",
+   "tipo": "Defensivo",
+   "classe": "Inseticida",
+   "unidade": "kg",
+   "dose_min_ha": 0.2,
+   "dose_max_ha": 0.5,
+   "culturas": [
+    "Cana-de-açúcar",
+    "Milho"
+   ],
+   "preco": 349.0,
+   "preco_fonte": "Aegro Insights (NF-e, fipronil 800 WG nacional, abr–ago/2026)",
+   "preco_url": "https://aegro.com.br/blog/fipronil-regente-apelido/",
+   "preco_data": "2026-08",
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/regent-800-wg",
+   "obs": "Preço do bloco fipronil 800 WG (genéricos; Regent sem preço publicado). MG 25/26: R$ 369,70/kg. Milho 0,1 kg/ha."
+  },
+  {
+   "nome": "Standak Top",
+   "fabricante": "BASF",
+   "ingrediente_ativo": "Piraclostrobina 25 + tiofanato-metílico 225 + fipronil 250 g/L",
+   "tipo": "Defensivo",
+   "classe": "Tratamento de sementes",
+   "unidade": "L",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": "https://revistacultivar.com.br/pesticida/standak-top",
+   "obs": "Dose por semente: soja 200 mL/100 kg; milho 200–250 mL/100 kg; sorgo 350 mL/100 kg."
+  },
+  {
+   "nome": "Fipronil 250 FS (TS genérico)",
+   "fabricante": "Diversos (Nortox, UPL, Tecnomyl)",
+   "ingrediente_ativo": "Fipronil 250 g/L",
+   "tipo": "Defensivo",
+   "classe": "Tratamento de sementes",
+   "unidade": "L",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho"
+   ],
+   "preco": 129.31,
+   "preco_fonte": "Aegro Insights (NF-e, nacional abr–ago/2026)",
+   "preco_url": "https://aegro.com.br/blog/fipronil-regente-apelido/",
+   "preco_data": "2026-08",
+   "dose_fonte": null,
+   "obs": "Dose: consultar bula (por 100 kg de semente)."
+  },
+  {
+   "nome": "MAP granulado",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "N 11% + P2O5 52% (fosfato monoamônico)",
+   "tipo": "Fertilizante",
+   "classe": "Adubo fosfatado",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 5250.0,
+   "preco_fonte": "Aegro Insights (NF-e, mediana nacional 30 dias)",
+   "preco_url": "https://aegro.com.br/blog/relacao-troca-soja-fertilizante-26-27/",
+   "preco_data": "2026-07",
+   "dose_fonte": null,
+   "obs": "SP abr/2026 (FAESP/CNA): R$ 5.068,71/t."
+  },
+  {
+   "nome": "Cloreto de potássio (KCl)",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "K2O 60%",
+   "tipo": "Fertilizante",
+   "classe": "Adubo potássico",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 2785.0,
+   "preco_fonte": "Aegro Insights (NF-e, mediana nacional 30 dias)",
+   "preco_url": "https://aegro.com.br/blog/relacao-troca-soja-fertilizante-26-27/",
+   "preco_data": "2026-07",
+   "dose_fonte": null,
+   "obs": "SP abr/2026: R$ 219,00/saco 50 kg."
+  },
+  {
+   "nome": "Ureia agrícola",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "N 45–46%",
+   "tipo": "Fertilizante",
+   "classe": "Adubo nitrogenado",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 4300.0,
+   "preco_fonte": "Aegro Insights",
+   "preco_url": "https://aegro.com.br/blog/milho-safrinha-ureia-arroba-oportunidade/",
+   "preco_data": "2026-06",
+   "dose_fonte": null,
+   "obs": "Região não especificada. RS ago/2026: R$ 3.100/t; SP abr/2026: R$ 289,33/saco 50 kg."
+  },
+  {
+   "nome": "Superfosfato simples (SSP)",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "P2O5 ~18% + Ca + S",
+   "tipo": "Fertilizante",
+   "classe": "Adubo fosfatado",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 2380.0,
+   "preco_fonte": "Aegro Insights (NF-e, mediana nacional 30 dias)",
+   "preco_url": "https://aegro.com.br/blog/relacao-troca-soja-fertilizante-26-27/",
+   "preco_data": "2026-07",
+   "dose_fonte": null
+  },
+  {
+   "nome": "Sulfato de amônio",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "N 21% + S",
+   "tipo": "Fertilizante",
+   "classe": "Adubo nitrogenado",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 3680.0,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": null,
+   "obs": "Fonte: R$ 184,00/saco 50 kg (convertido ×20)."
+  },
+  {
+   "nome": "NPK 20-00-20",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "Formulado N-P2O5-K2O 20-00-20",
+   "tipo": "Fertilizante",
+   "classe": "Adubo NPK",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 3362.74,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": null
+  },
+  {
+   "nome": "NPK 05-25-25",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "Formulado 05-25-25",
+   "tipo": "Fertilizante",
+   "classe": "Adubo NPK",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo"
+   ],
+   "preco": 3979.49,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": null
+  },
+  {
+   "nome": "NPK 08-20-18",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "Formulado 08-20-18",
+   "tipo": "Fertilizante",
+   "classe": "Adubo NPK",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Milho",
+    "Sorgo"
+   ],
+   "preco": 4124.45,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": null
+  },
+  {
+   "nome": "NPK 04-14-08",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "Formulado 04-14-08",
+   "tipo": "Fertilizante",
+   "classe": "Adubo NPK",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Cana-de-açúcar",
+    "Soja"
+   ],
+   "preco": 2441.53,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": null
+  },
+  {
+   "nome": "NPK 04-30-10",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "Formulado 04-30-10",
+   "tipo": "Fertilizante",
+   "classe": "Adubo NPK",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": null,
+   "obs": "Preço não encontrado."
+  },
+  {
+   "nome": "NPK 08-28-16",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "Formulado 08-28-16",
+   "tipo": "Fertilizante",
+   "classe": "Adubo NPK",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Milho",
+    "Sorgo"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": null,
+   "obs": "Preço não encontrado."
+  },
+  {
+   "nome": "Calcário dolomítico",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "CaO + MgO",
+   "tipo": "Corretivo",
+   "classe": "Calcário",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 265.69,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": null,
+   "obs": "Preço SP; frete pesa muito no calcário."
+  },
+  {
+   "nome": "Gesso agrícola",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "Sulfato de cálcio",
+   "tipo": "Corretivo",
+   "classe": "Gesso",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 304.55,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": null
+  },
+  {
+   "nome": "Óleo diesel S10",
+   "fabricante": "Distribuidoras",
+   "ingrediente_ativo": "Diesel S-10",
+   "tipo": "Combustível",
+   "classe": "Diesel",
+   "unidade": "L",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja",
+    "Milho",
+    "Sorgo",
+    "Cana-de-açúcar"
+   ],
+   "preco": 7.127,
+   "preco_fonte": "ANP (média MG, semana 27/09–03/10/2026, via combustiveis-anp.com.br)",
+   "preco_url": "https://www.combustiveis-anp.com.br/estado/mg/belo-horizonte/diesel-s10",
+   "preco_data": "2026-10",
+   "dose_fonte": null,
+   "obs": "Preço de bomba (varejo). SP abr/2026 (FAESP): R$ 7,36/L."
+  },
+  {
+   "nome": "Semente de soja (certificada)",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "—",
+   "tipo": "Semente",
+   "classe": "Semente",
+   "unidade": "kg",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Soja"
+   ],
+   "preco": 9.0,
+   "preco_fonte": "MF Rural (anúncio, Terra Roxa/PR, safra 26/27)",
+   "preco_url": "https://www.mfrural.com.br/busca/semente-soja",
+   "preco_data": "2026-10",
+   "dose_fonte": null,
+   "obs": "Um único anúncio de marketplace; sem royalties/TS explícitos. Usar com cautela."
+  },
+  {
+   "nome": "Semente de milho híbrido (saco 60 mil sementes)",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "—",
+   "tipo": "Semente",
+   "classe": "Semente",
+   "unidade": "sc",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Milho"
+   ],
+   "preco": null,
+   "preco_fonte": null,
+   "preco_url": null,
+   "preco_data": null,
+   "dose_fonte": null,
+   "obs": "Sem preço representativo encontrado (anúncios de marketplace são de híbridos convencionais/silagem)."
+  },
+  {
+   "nome": "Mudas de cana-de-açúcar",
+   "fabricante": "Diversos",
+   "ingrediente_ativo": "—",
+   "tipo": "Semente",
+   "classe": "Muda",
+   "unidade": "t",
+   "dose_min_ha": null,
+   "dose_max_ha": null,
+   "culturas": [
+    "Cana-de-açúcar"
+   ],
+   "preco": 240.84,
+   "preco_fonte": "FAESP/CNA Campo Futuro (SP)",
+   "preco_url": "https://faespsenar.com.br/painel-de-dados/wp-content/uploads/2026/06/2026.05-Precos-de-insumos-pagos-pelo-produtor-paulista_compressed.pdf",
+   "preco_data": "2026-04",
+   "dose_fonte": null
+  }
+ ],
+ "culturas": {
+  "Soja": {
+   "ciclo_dias": null,
+   "ciclo_min_dias": 100,
+   "ciclo_max_dias": 150,
+   "populacao_ha": null,
+   "populacao_min_ha": 200000,
+   "populacao_max_ha": 380000,
+   "produtividade_ha": 65.0,
+   "unidade": "sc",
+   "fonte": "Produtividade: Conab 11º levantamento 2025/26 (MG 3,9 t/ha), via Diário do Comércio; ciclo/população: Embrapa Soja, Cultivares de soja MG e Região Central (Arantes et al., 2010)",
+   "url": "https://diariodocomercio.com.br/agronegocio/safra-graos-minas-gerais-2025-26/ ; https://www.infoteca.cnptia.embrapa.br/infoteca/bitstream/doc/898048/1/FolhetoSoja201011MGfinalcapa.pdf",
+   "data": "2026-08",
+   "obs": "65 sc/ha = 3.900 kg/ha ÷ 60. Ciclo/população são faixas de cultivares Embrapa (publicação de 2010); a cultivar define o valor."
+  },
+  "Milho safrinha": {
+   "ciclo_dias": null,
+   "ciclo_min_dias": 110,
+   "ciclo_max_dias": 145,
+   "populacao_ha": null,
+   "populacao_min_ha": 40000,
+   "populacao_max_ha": 50000,
+   "produtividade_ha": 93.3,
+   "unidade": "sc",
+   "fonte": "Produtividade: Conab 12º levantamento 2025/26 (MG milho 2ª safra 5,6 t/ha), via Diário do Comércio; população: Embrapa Milho e Sorgo (Plantio/espaçamento); ciclo: grupo II MAPA citado por Embrapa (Cruz et al., 2012)",
+   "url": "https://diariodocomercio.com.br/agronegocio/producao-graos-minas-gerais-safra-2025-26/ ; https://ainfo.cnptia.embrapa.br/digital/bitstream/item/27362/1/Plantio-espacamento.pdf ; https://www.infoteca.cnptia.embrapa.br/infoteca/bitstream/doc/931868/1/Planejamentosafrinha.pdf",
+   "data": "2026-09",
+   "obs": "93,3 sc/ha = 5.600 kg/ha ÷ 60. Ciclo 110–145 dias é o grupo II (emergência à maturação fisiológica); superprecoces <110 dias."
+  },
+  "Sorgo": {
+   "ciclo_dias": null,
+   "populacao_ha": null,
+   "populacao_min_ha": 100000,
+   "populacao_max_ha": 240000,
+   "produtividade_ha": 61.7,
+   "unidade": "sc",
+   "fonte": "Produtividade: Conab 11º levantamento 2025/26 (MG ~3,7 t/ha), via Diário do Comércio; população: Embrapa, Sorgo Safrinha 500 perguntas (2015)",
+   "url": "https://diariodocomercio.com.br/agronegocio/safra-graos-minas-gerais-2025-26/ ; https://www.alice.cnptia.embrapa.br/alice/bitstream/doc/1015647/1/Sorgosafrinha.pdf",
+   "data": "2026-08",
+   "obs": "61,7 sc/ha = 3.700 kg/ha ÷ 60. Embrapa só classifica ciclo até o florescimento (precoce 51–60 dias); ciclo total não informado."
+  },
+  "Cana-de-açúcar": {
+   "ciclo_dias": 365,
+   "populacao_ha": null,
+   "produtividade_ha": 80.9,
+   "unidade": "t",
+   "fonte": "Produtividade: Conab 2º levantamento cana 2026/27, região Sudeste 80.872 kg/ha (Agência Gov); ciclo: cana de ano 12 meses / ano e meio 18 meses (NovaCana, Macedo et al. 2004)",
+   "url": "https://agenciagov.ebc.com.br/noticias/202608/nova-estimativa-de-cana-de-acucar-traz-producao-de-705-2-milhoes-de-toneladas-na-safra-2026-27 ; https://www.novacana.com/noticias/aspectos-plantio-cana-de-acucar",
+   "data": "2026-08",
+   "obs": "Produtividade é da região Sudeste (MG não separado na fonte). Cana de ano e meio: ~18 meses (~545 dias) no 1º corte; socas ~12 meses."
+  }
+ },
+ "precos_produto": {
+  "Soja": {
+   "preco": 149.8,
+   "fonte": "Grão Direto – soja disponível Uberaba/MG",
+   "url": "https://www.graodireto.com.br/ofertas/soja/mg/uberaba/",
+   "data": "2026-10-06",
+   "obs": "Indicador CEPEA/ESALQ Paranaguá em 07/10/2026: R$ 153,90/sc (Notícias Agrícolas)."
+  },
+  "Milho": {
+   "preco": 66.11,
+   "fonte": "Grão Direto – milho disponível Uberaba/MG",
+   "url": "https://www.graodireto.com.br/ofertas/milho/mg/uberaba/",
+   "data": "2026-09-28",
+   "obs": "Indicador ESALQ/B3 em 06/10/2026: R$ 67,23/sc (Notícias Agrícolas)."
+  },
+  "Sorgo": {
+   "preco": 48.91,
+   "fonte": "Grão Direto – sorgo, região Triângulo Mineiro",
+   "url": "https://www.graodireto.com.br/precos/sorgo/",
+   "data": "2026-09-02",
+   "obs": "Rio Verde/GO (Comigo) 06/10/2026: R$ 47,00/sc (Notícias Agrícolas)."
+  },
+  "Cana (ATR)": {
+   "preco": 0.8962,
+   "unidade": "R$/kg ATR",
+   "fonte": "Consecana-SP, acumulado safra 2026/27 até maio/26 (Notícias Agrícolas)",
+   "url": "https://www.noticiasagricolas.com.br/cotacoes/sucroenergetico/atr",
+   "data": "2026-05",
+   "obs": "Consecana-SP sem divulgação posterior (impasse na nova precificação). Consecana-PR acumulado até set/26: R$ 0,8900/kg. MG não publicado na fonte."
+  }
+ }
+}

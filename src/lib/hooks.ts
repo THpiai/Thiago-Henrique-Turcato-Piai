@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { db } from './db'
 import type { Dados } from './painel'
 import { vivo, type Pessoa } from './tipos'
+import { derivarCiclos } from './safra'
 import { talhaoDoPonto, type Ponto } from './geo'
 
 /** Lê do banco do celular e redesenha sozinho quando algo muda. */
@@ -20,15 +21,18 @@ export function useDados(): Dados | undefined {
   return useLive(async () => {
     const operacoes = (await db.operacoes.toArray()).filter(vivo)
     const ids = new Set(operacoes.map((o) => o.id))
+    const todos = await db.talhoes.toArray()
     return {
-    talhoes: (await db.talhoes.toArray()).filter((t) => t.ativo !== false).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true })),
-    ciclos: (await db.ciclos.toArray()).filter(vivo),
+    talhoes: todos.filter((t) => t.ativo !== false).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true })),
+    // A safra é o resultado das operações: plantio, produção e colheita saem dos registros.
+    ciclos: derivarCiclos((await db.ciclos.toArray()).filter(vivo), operacoes, todos),
     operacoes,
     produtos: (await db.operacao_produtos.toArray()).filter((p) => ids.has(p.operacao_id)),
     campo: (await db.campo.toArray()).filter(vivo),
     chuva: (await db.chuva.toArray()).filter(vivo),
     saldos: await db.saldos.toArray(),
     sedes: await db.sedes.toArray(),
+    insumos: await db.insumos.toArray(),
     }
   })
 }

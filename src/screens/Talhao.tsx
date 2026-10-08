@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useDados, useLive, useSessao } from '../lib/hooks'
-import { resumoTalhao } from '../lib/painel'
+import { resumoTalhao, type Resumo } from '../lib/painel'
+import type { Operacao } from '../lib/tipos'
 import { db } from '../lib/db'
 import { fmtData, fmtDataHora, fmtN } from '../lib/formato'
 import { alterar, apagar, restaurar } from '../lib/sync'
@@ -55,6 +56,8 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
       <button className="voltar" onClick={voltar}>‹ Voltar</button>
       <h1>{t.nome} <small className="mudo">{fmtN(Number(t.area_ha), 2)} ha{t.pluviometro ? ' · tem pluviômetro' : ''}</small></h1>
 
+      <EstadoSafra r={r} />
+
       <section className="cartao">
         <h2>Safra atual</h2>
         {r.ciclo ? (
@@ -63,17 +66,18 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
             {r.ciclo.cultivar && <><dt>Cultivar</dt><dd>{r.ciclo.cultivar}{r.ciclo.ciclo_cultivar_dias ? ` (${r.ciclo.ciclo_cultivar_dias} dias)` : ''}</dd></>}
             <dt>Plantio</dt><dd>{fmtData(r.ciclo.data_plantio)}{r.dap != null ? ` · ${r.dap} DAP` : ''}</dd>
             {r.ciclo.populacao_plantas_ha && <><dt>População</dt><dd>{fmtN(r.ciclo.populacao_plantas_ha)} plantas/ha</dd></>}
-            <dt>Estádio</dt><dd>{r.ciclo.estadio_atual ?? '–'}{r.ciclo.data_estadio ? ` (${fmtData(r.ciclo.data_estadio)})` : ''}</dd>
+            <dt>Estádio</dt><dd>{r.estado.estadio ?? '–'}{r.estado.estadioEstimado ? ' (estimado pelos dias de plantio)' : r.ciclo.data_estadio && r.estado.estadio === r.ciclo.estadio_atual ? ` (anotado ${fmtData(r.ciclo.data_estadio)})` : ''}</dd>
+            <dt>Operações</dt><dd>{resumoOps(r.operacoesCiclo)}</dd>
             <dt>Colheita</dt><dd>{r.ciclo.data_colheita ? `colhido em ${fmtData(r.ciclo.data_colheita)}` : r.diasParaColheita != null ? `prevista em ${r.diasParaColheita} dias` : '–'}</dd>
             {r.ciclo.producao != null && <><dt>Produção</dt><dd>{fmtN(r.ciclo.producao, 1)} {r.ciclo.unidade_producao} · <b>{fmtN(r.produtividade, 1)} {r.ciclo.unidade_producao}/ha</b>{r.ciclo.meta_por_ha ? ` (meta ${fmtN(r.ciclo.meta_por_ha, 1)})` : ''}</dd></>}
             {r.ciclo.cultura === 'Cana-de-açúcar' && r.ciclo.atr_kg_t != null && <><dt>ATR</dt><dd>{fmtN(r.ciclo.atr_kg_t, 1)} kg/t{r.ciclo.corte_cana ? ` · ${r.ciclo.corte_cana}º corte` : ''}</dd></>}
-            <dt>Insumos</dt><dd>{r.custoHa != null ? `R$ ${fmtN(r.custoHa, 0)}/ha` : 'sem preço de entrada no estoque'}</dd>
+            <dt>Insumos</dt><dd>{r.custoHa != null ? `R$ ${fmtN(r.custoHa, 0)}/ha${r.custoEstimado ? ' (parte pelo padrão mercado)' : ''}` : 'sem preço de entrada no estoque'}</dd>
             <dt>Chuva</dt><dd>{fmtN(r.chuva7, 0)} mm em 7 dias · {fmtN(r.chuva30, 0)} mm em 30 dias</dd>
           </dl>
         ) : <p className="mudo">Nenhuma safra cadastrada para este talhão.</p>}
         {gestor && (
           <div className="acoes">
-            {r.ciclo && <button className="secundario" onClick={() => editarCiclo(id, r.ciclo!.id)}>Atualizar estádio / colheita</button>}
+            {r.ciclo && <button className="secundario" onClick={() => editarCiclo(id, r.ciclo!.id)}>Ajustar safra</button>}
             <button className="secundario" onClick={() => editarCiclo(id)}>Nova safra</button>
           </div>
         )}
@@ -142,4 +146,37 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
       )}
     </div>
   )
+}
+
+const NIVEL_TXT = { bom: 'Em dia', atencao: 'Atenção', critico: 'Ação necessária', 'sem-dados': 'Sem safra' } as const
+
+/** Conclusão automática sobre a safra, a partir de operações, monitoramento, chuva e estádio. */
+export function EstadoSafra({ r }: { r: Resumo }) {
+  const e = r.estado
+  return (
+    <section className={`cartao estado-safra ${e.nivel}`}>
+      <div className="topo">
+        <h2>Estado da safra</h2>
+        <span className={`selo ${e.nivel}`}>{NIVEL_TXT[e.nivel]}</span>
+      </div>
+      {r.ciclo && r.ciclo.status === 'Em andamento' && (
+        <div className="trilha" aria-label="Andamento do ciclo">
+          <div className="barra"><span style={{ width: `${Math.round((r.progresso ?? 0) * 100)}%` }} /></div>
+          <small>{e.estadio ?? '–'}{e.estadioEstimado ? ' (estimado)' : ''}{r.dap != null ? ` · ${r.dap} dias de plantio` : ''}{r.diasParaColheita != null ? ` · colheita ${r.diasParaColheita >= 0 ? `em ${r.diasParaColheita} dias` : `atrasada ${-r.diasParaColheita} dias`}` : ''}</small>
+        </div>
+      )}
+      {e.pontos.length > 0 && (
+        <ul className="pontos">
+          {e.pontos.map((p, i) => <li key={i} className={p.nivel}>{p.texto}</li>)}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function resumoOps(ops: Operacao[]): string {
+  if (!ops.length) return 'nenhuma ainda'
+  const n = new Map<string, number>()
+  for (const o of ops) n.set(o.tipo, (n.get(o.tipo) ?? 0) + 1)
+  return [...n].map(([t, q]) => `${q} ${t.toLowerCase()}`).join(' · ')
 }

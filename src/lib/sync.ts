@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { db, gravarMeta, TABELAS_CADASTRO, TABELAS_REGISTRO, type TabelaSync } from './db'
-import type { Operacao, OperacaoProduto } from './tipos'
+import type { Ciclo, Operacao, OperacaoProduto } from './tipos'
 
 type Cliente = Pick<SupabaseClient, 'from'>
 type Linha = Record<string, unknown> & { id: string }
@@ -36,8 +36,10 @@ export const apagar = (tabela: TabelaSync, ids: string[]) =>
 export const restaurar = (tabela: TabelaSync, ids: string[]) =>
   tabela === 'talhoes' ? alterar(tabela, ids, { ativo: true }) : alterar(tabela, ids, { excluido_em: null })
 
-/** Operação e seus produtos entram juntos e sobem na ordem certa. */
-export async function salvarOperacao(op: Operacao, produtos: OperacaoProduto[]) {
+/** Operação e seus produtos entram juntos e sobem na ordem certa.
+ *  Plantio sem safra aberta: a safra aparece na hora no celular e o servidor cria a dele com o mesmo id. */
+export async function salvarOperacao(op: Operacao, produtos: OperacaoProduto[], novaSafra?: Ciclo) {
+  if (novaSafra) await db.ciclos.put({ ...novaSafra, _auto: 1 } as Ciclo)
   await salvar('operacoes', [op as Linha])
   if (produtos.length) await salvar('operacao_produtos', produtos as Linha[])
 }
@@ -137,7 +139,9 @@ export async function receber(cli: Cliente): Promise<boolean> {
   await db.transaction('rw', [...baixados.map(([t]) => db.table(t)), db.saldos, db.clima], async () => {
     for (const [t, linhas] of baixados) {
       const tabela = db.table(t)
-      const pendentes = await tabela.filter((l) => l._pendente === 1).toArray()
+      // Safra criada no celular pelo Plantio fica até o servidor devolver a dele.
+      const idsServidor = new Set(linhas.map((l) => l.id))
+      const pendentes = await tabela.filter((l) => l._pendente === 1 || (l._auto === 1 && !idsServidor.has(l.id))).toArray()
       const idsPend = new Set(pendentes.map((l) => l.id))
       await tabela.clear()
       await tabela.bulkPut([...linhas.filter((l) => !idsPend.has(l.id)).map((l) => ({ ...l, _pendente: 0 })), ...pendentes])

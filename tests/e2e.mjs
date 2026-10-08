@@ -18,6 +18,7 @@ const banco = {
   talhoes: [
     { id: 't1', nome: 'T01 Sede', area_ha: 82.5, contorno: sq(-17.8, -50.9, 0.008), latitude: -17.796, longitude: -50.896, pluviometro: true, ativo: true },
     { id: 't2', nome: 'T02 Baixada', area_ha: 64, contorno: sq(-17.8, -50.89, 0.007), latitude: -17.7965, longitude: -50.8865, pluviometro: true, ativo: true },
+    { id: 't4', nome: 'T04 Nova', area_ha: 40, contorno: sq(-17.83, -50.92, 0.006), latitude: -17.827, longitude: -50.917, pluviometro: false, ativo: true },
     { id: 't3', nome: 'T03 Cana', area_ha: 120, contorno: sq(-17.81, -50.9, 0.01), latitude: -17.805, longitude: -50.895, pluviometro: false, ativo: true },
   ],
   insumos: [
@@ -246,6 +247,51 @@ try {
   ok(upd.includes('operacoes:excluido_em') && upd.includes('talhoes:ativo'), `servidor recebeu só as marcas de lixeira (${upd.join(' · ')})`)
   ok(banco.operacoes.find((o) => o.tipo === 'Pulverização').excluido_em, 'operação ficou na lixeira no servidor')
   ok(banco.talhoes.find((t) => t.id === 't1').ativo === true, 'talhão restaurado no servidor')
+
+  // Safra automática: Plantio num talhão sem safra cria a safra, e o estado da safra sai dos registros.
+  await pagina.locator('.abas').getByRole('button', { name: /Início/ }).click()
+  await espera('T02 Baixada')
+  ok(await pagina.locator('.talhao', { hasText: 'T02 Baixada' }).locator('.selo.critico').count() === 1, 'talhão com praga acima do nível e sem pulverização aparece como ação necessária')
+  await pagina.getByRole('button', { name: /Registrar/ }).click()
+  await pagina.getByRole('button', { name: /Operação/ }).click()
+  await pagina.locator('form select').first().selectOption('t4')
+  await pagina.getByRole('radio', { name: 'Plantio' }).click()
+  await espera('não tem safra aberta')
+  ok(await pagina.getByRole('button', { name: 'Salvar operação' }).isDisabled(), 'plantio sem safra pede a cultura')
+  ok((await pagina.getByLabel('Área feita (ha)').inputValue()) === '40', 'área acompanha o talhão escolhido')
+  await pagina.getByRole('radio', { name: 'Soja' }).click()
+  await pagina.getByLabel('Cultivar / variedade').fill('BRS 7980')
+  await foto('10-plantio-cria-safra')
+  await pagina.getByRole('button', { name: 'Salvar operação' }).click()
+  for (let i = 0; i < 50 && !(banco.operacoes ?? []).some((o) => o.tipo === 'Plantio'); i++) await pagina.waitForTimeout(200)
+  const plantio = banco.operacoes.find((o) => o.tipo === 'Plantio')
+  ok(plantio.cultura === 'Soja' && plantio.cultivar === 'BRS 7980' && plantio.ciclo_id, 'plantio subiu com cultura, cultivar e o id da safra nova')
+  ok(!recebidos.some((r) => r.tabela === 'ciclos'), 'operador não precisa gravar a safra: o servidor cria pelo plantio')
+  await espera('Olá, Thiago')
+  await pagina.getByRole('button', { name: /T04 Nova/ }).click()
+  await espera('Estado da safra')
+  await espera('Safra 2026/27 · Soja')
+  await espera('1 plantio')
+  ok(await pagina.getByText('BRS 7980').count() > 0, 'safra aparece no talhão com a cultivar do plantio')
+  await foto('11-estado-safra')
+  await pagina.getByRole('button', { name: '‹ Voltar' }).click()
+  await pagina.getByRole('button', { name: /T02 Baixada/ }).click()
+  await espera('acima do nível de controle desde hoje')
+  await foto('12-estado-safra-critico')
+
+  // Padrão mercado no cadastro de insumo.
+  await pagina.locator('.secundarias').getByRole('button', { name: /Insumos/ }).click()
+  await pagina.getByRole('button', { name: '+ Insumo' }).click()
+  await pagina.getByLabel('Nome comercial').fill('Fox Xpro')
+  await espera('Padrão mercado encontrado')
+  await espera('(padrão mercado: R$ 268,00/L')
+  await foto('13-insumo-padrao-mercado')
+  await pagina.getByRole('button', { name: 'Preencher o que está vazio' }).click()
+  ok((await pagina.getByLabel(/^Preço/).inputValue()) === '268', 'preço de referência preenchido com um toque')
+  await pagina.getByRole('button', { name: 'Salvar', exact: true }).click()
+  for (let i = 0; i < 50 && !recebidos.some((r) => r.tabela === 'insumos'); i++) await pagina.waitForTimeout(200)
+  const ins = recebidos.find((r) => r.tabela === 'insumos').linhas[0]
+  ok(ins.preco_unitario === 268 && ins.unidade === 'L' && ins.tipo === 'Defensivo' && ins.dose_ha_padrao === 0.5, `insumo subiu com dados de mercado (${ins.ingrediente_ativo})`)
 
   ok(erros.length === 0, 'sem erros de JavaScript' + (erros.length ? ': ' + erros.join(' | ') : ''))
   console.log('\nTODOS OS TESTES PASSARAM')

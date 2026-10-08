@@ -1,7 +1,7 @@
 import type { TalhaoGeo } from './geo'
 
 /** Campo local: 1 enquanto o registro ainda não subiu para o servidor. */
-type Local = { _pendente?: 0 | 1 }
+type Local = { _pendente?: 0 | 1; _auto?: 0 | 1 }
 /** Preenchido quando o registro foi para a lixeira. */
 type Apagavel = { excluido_em?: string | null }
 
@@ -13,6 +13,8 @@ export type Talhao = TalhaoGeo & Local & {
 }
 export type Insumo = Local & {
   id: string; nome: string; tipo: string; unidade: string; estoque_minimo?: number | null; ativo: boolean
+  fabricante?: string | null; ingrediente_ativo?: string | null; classe?: string | null
+  dose_ha_padrao?: number | null; preco_unitario?: number | null
 }
 export type Ciclo = Local & Apagavel & {
   id: string; talhao_id: string; safra: string; cultura: string; cultivar?: string | null
@@ -27,6 +29,8 @@ export type Operacao = Local & Apagavel & {
   area_ha?: number | null; horas?: number | null; alvo?: string | null; volume_calda_l_ha?: number | null
   temperatura_c?: number | null; umidade_pct?: number | null; vento_kmh?: number | null
   receituario?: string | null; latitude?: number | null; longitude?: number | null; observacao?: string | null
+  cultura?: string | null; cultivar?: string | null; populacao_plantas_ha?: number | null
+  producao?: number | null; unidade_producao?: 'sc' | 't' | null
 }
 export type OperacaoProduto = Local & {
   id: string; operacao_id: string; insumo_id: string; dose_ha: number; unidade: string; quantidade_total?: number | null

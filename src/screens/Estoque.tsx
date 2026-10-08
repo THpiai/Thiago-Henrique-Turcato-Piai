@@ -7,6 +7,7 @@ import { apagar, restaurar, salvar } from '../lib/sync'
 import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
 import { fmtData } from '../lib/formato'
 import { Aviso, Escolha, Rotulo } from '../components/ui'
+import { precoMercado, referenciaInsumo } from '../lib/mercado'
 
 /** Saldo do servidor mais o que ainda está só no celular. */
 function useSaldos() {
@@ -75,6 +76,9 @@ function FormMovimento({ pronto }: { pronto: () => void }) {
   const [forn, setForn] = useState('')
   const [obs, setObs] = useState('')
   const ins = insumos.find((i) => i.id === insumoId)
+  const ref = referenciaInsumo(ins?.nome)
+  const precoUn = ins?.preco_unitario != null ? Number(ins.preco_unitario) : ref?.preco != null && ref.unidade === ins?.unidade ? ref.preco : null
+  const valorRef = precoUn != null && num(qtd) ? precoUn * num(qtd)! : null
 
   async function enviar(e: FormEvent) {
     e.preventDefault()
@@ -104,7 +108,9 @@ function FormMovimento({ pronto }: { pronto: () => void }) {
       {mov === 'Entrada' && (
         <>
           <div className="duas">
-            <Rotulo t="Valor total da nota (R$)" dica="Calcula o custo médio e o custo por hectare"><input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} /></Rotulo>
+            <Rotulo t="Valor total da nota (R$)" dica={valorRef != null ? `(${ins?.preco_unitario != null ? 'preço cadastrado' : 'padrão mercado'}: R$ ${fmtN(valorRef, 2)}${ins?.preco_unitario == null && ref ? ' · ' + precoMercado(ref) : ''})` : 'Calcula o custo médio e o custo por hectare'}>
+              <input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder={valorRef != null ? `(${fmtN(valorRef, 2)})` : ''} />
+            </Rotulo>
             <Rotulo t="Nº da nota"><input value={nf} onChange={(e) => setNf(e.target.value)} /></Rotulo>
           </div>
           <Rotulo t="Fornecedor"><input value={forn} onChange={(e) => setForn(e.target.value)} /></Rotulo>
