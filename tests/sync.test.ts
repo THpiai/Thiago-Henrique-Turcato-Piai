@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../src/lib/db'
-import { enviar, receber, salvar, salvarOperacao } from '../src/lib/sync'
+import { apagar, enviar, receber, restaurar, salvar, salvarOperacao } from '../src/lib/sync'
 
 type Resp = { status: number; error: { message: string } | null }
 /** Servidor de mentira: guarda os upserts e responde como o Supabase. */
@@ -18,6 +18,13 @@ function servidor(opcoes: { semRede?: boolean; recusa?: string } = {}) {
           dados[tabela] = [...(dados[tabela] ?? []), ...linhas]
           return { status: 201, error: null }
         },
+        update: (campos: Record<string, unknown>) => ({
+          eq: async (_col: string, id: string): Promise<Resp> => {
+            if (opcoes.semRede) throw new TypeError('Failed to fetch')
+            recebidos.push({ tabela, linhas: [{ id, ...campos, _op: 'update' }] })
+            return { status: 204, error: null }
+          },
+        }),
         select: () => q, gte: () => q,
         then: (ok: (r: unknown) => void) => ok({ data: dados[tabela] ?? [], error: null }),
       }
@@ -69,5 +76,22 @@ describe('sincronização', () => {
     s.dados.campo = [{ id: 'remoto', data_hora: new Date().toISOString(), autor_id: 'u', talhao_id: 't', tipo: 'Doença', status: 'Aberta' }]
     expect(await receber(s.cli)).toBe(true)
     expect((await db.campo.toArray()).map((c) => c.id).sort()).toEqual(['local', 'remoto'])
+  })
+
+  it('apagar manda só a marca de lixeira e restaurar tira; talhão é arquivado', async () => {
+    await salvar('operacoes', [{ id: 'o9', data_hora: new Date().toISOString(), autor_id: 'u', talhao_id: 't', tipo: 'Plantio' }])
+    await apagar('operacoes', ['o9'])
+    expect((await db.operacoes.get('o9'))?.excluido_em).toBeTruthy()
+    await restaurar('operacoes', ['o9'])
+    await apagar('talhoes', ['t'])
+    const s = servidor()
+    expect(await enviar(s.cli)).toBe('ok')
+    const ups = s.recebidos.filter((r) => (r.linhas[0] as { _op?: string })._op === 'update').map((r) => r.linhas[0])
+    expect(ups).toHaveLength(3)
+    expect(ups[0]).toMatchObject({ id: 'o9' })
+    expect(Object.keys(ups[0] as object)).toEqual(['id', 'excluido_em', '_op'])
+    expect(ups[1]).toMatchObject({ id: 'o9', excluido_em: null })
+    expect(ups[2]).toMatchObject({ id: 't', ativo: false })
+    expect((await db.operacoes.get('o9'))?._pendente).toBe(0)
   })
 })

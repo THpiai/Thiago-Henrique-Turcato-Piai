@@ -2,6 +2,8 @@ import type { TalhaoGeo } from './geo'
 
 /** Campo local: 1 enquanto o registro ainda não subiu para o servidor. */
 type Local = { _pendente?: 0 | 1 }
+/** Preenchido quando o registro foi para a lixeira. */
+type Apagavel = { excluido_em?: string | null }
 
 export type Perfil = 'dono' | 'encarregado' | 'operador'
 export type Pessoa = { id: string; nome: string; email: string; perfil: Perfil; ativo: boolean }
@@ -12,7 +14,7 @@ export type Talhao = TalhaoGeo & Local & {
 export type Insumo = Local & {
   id: string; nome: string; tipo: string; unidade: string; estoque_minimo?: number | null; ativo: boolean
 }
-export type Ciclo = Local & {
+export type Ciclo = Local & Apagavel & {
   id: string; talhao_id: string; safra: string; cultura: string; cultivar?: string | null
   ciclo_cultivar_dias?: number | null; data_plantio?: string | null; populacao_plantas_ha?: number | null
   estadio_atual?: string | null; data_estadio?: string | null; colheita_prevista?: string | null
@@ -20,7 +22,7 @@ export type Ciclo = Local & {
   meta_por_ha?: number | null; corte_cana?: number | null; atr_kg_t?: number | null
   status: 'Planejado' | 'Em andamento' | 'Colhido'; observacao?: string | null
 }
-export type Operacao = Local & {
+export type Operacao = Local & Apagavel & {
   id: string; data_hora: string; autor_id: string; talhao_id: string; ciclo_id?: string | null; tipo: string
   area_ha?: number | null; horas?: number | null; alvo?: string | null; volume_calda_l_ha?: number | null
   temperatura_c?: number | null; umidade_pct?: number | null; vento_kmh?: number | null
@@ -29,21 +31,23 @@ export type Operacao = Local & {
 export type OperacaoProduto = Local & {
   id: string; operacao_id: string; insumo_id: string; dose_ha: number; unidade: string; quantidade_total?: number | null
 }
-export type Campo = Local & {
+export type Campo = Local & Apagavel & {
   id: string; data_hora: string; autor_id: string; talhao_id: string; ciclo_id?: string | null; tipo: string
   alvo?: string | null; nivel_encontrado?: number | null; unidade_nivel?: string | null; nivel_de_controle?: number | null
   urgencia?: 'Baixa' | 'Média' | 'Alta' | null; status: string; latitude?: number | null; longitude?: number | null
   descricao?: string | null; resolvido_em?: string | null
 }
-export type EstoqueMov = Local & {
+export type EstoqueMov = Local & Apagavel & {
   id: string; data: string; autor_id: string; insumo_id: string; movimento: string; quantidade: number
   valor_total?: number | null; nota_fiscal?: string | null; fornecedor?: string | null; observacao?: string | null
 }
 export type Sede = { id: string; nome: string; latitude: number; longitude: number }
 export type ClimaHora = { sede_id: string; hora: string; temperatura_c?: number | null; umidade_pct?: number | null; vento_kmh?: number | null; chuva_mm?: number | null }
-export type Chuva = Local & {
+export type Chuva = Local & Apagavel & {
   id: string; data: string; talhao_id?: string | null; sede_id?: string | null; milimetros: number; fonte: string; autor_id?: string | null; observacao?: string | null
 }
 export type Saldo = {
   insumo_id: string; nome: string; unidade: string; estoque_minimo?: number | null; saldo: number; custo_medio?: number | null
 }
+
+export const vivo = (x: { excluido_em?: string | null }) => !x.excluido_em

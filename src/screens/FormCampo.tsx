@@ -12,7 +12,7 @@ const UNIDADES_NIVEL = ['insetos/m', 'insetos/pano', '% desfolha', '% plantas', 
 export function FormCampo({ pronto }: { pronto: () => void }) {
   const { eu } = useSessao()
   const { pos } = useGps()
-  const ciclos = useLive(() => db.ciclos.toArray()) ?? []
+  const ciclos = (useLive(() => db.ciclos.toArray()) ?? []).filter((c) => !c.excluido_em)
   const [talhaoId, setTalhaoId] = useState('')
   const [tipo, setTipo] = useState<string>('')
   const [quando, setQuando] = useState(agoraLocal())

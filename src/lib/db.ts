@@ -5,6 +5,8 @@ import type { Campo, Chuva, Ciclo, ClimaHora, EstoqueMov, Insumo, Operacao, Oper
 export type ItemFila = {
   seq?: number
   tabela: TabelaSync
+  /** upsert (padrão) grava a linha inteira; update muda só os campos enviados (apagar, restaurar, resolver). */
+  op?: 'upsert' | 'update'
   linhas: Record<string, unknown>[]
   criado_em: string
   tentativas: number

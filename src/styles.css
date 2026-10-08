@@ -310,3 +310,29 @@ fieldset > .secundario { margin-bottom: 0.8rem; }
   .medidas b { font-size: 1.15rem; }
   .painel-mapa { gap: 0.45rem; max-height: 62%; }
 }
+
+/* ── Apagar e desfazer ──────────────────────────────────────────────────── */
+.icone-btn.lixo { width: 34px; height: 34px; color: var(--mudo); }
+.icone-btn.lixo:hover { color: var(--alerta); border-color: color-mix(in srgb, var(--alerta) 40%, transparent); }
+.perigo { display: inline-flex; align-items: center; gap: 0.4rem; background: none; border: 1px solid color-mix(in srgb, var(--alerta) 35%, transparent); color: var(--alerta); border-radius: 12px; padding: 0.6rem 0.9rem; font-weight: 600; min-height: 44px; }
+.perigo:hover { background: var(--alerta-claro); }
+.mini.perigo-cheio { background: var(--alerta); border-color: var(--alerta); color: #fff; }
+.confirmar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; background: var(--alerta-claro); border-radius: var(--raio-p); padding: 0.55rem 0.7rem; margin-top: 0.4rem; }
+.confirmar b { color: var(--alerta); font-size: 0.9rem; }
+.confirmar > div { display: flex; gap: 0.4rem; }
+.barra-desfazer {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px)); z-index: 2000;
+  display: flex; align-items: center; gap: 1rem; background: #1d241d; color: #f4f1e9; border-radius: 12px; padding: 0.7rem 0.8rem 0.7rem 1rem;
+  box-shadow: var(--sombra-alta); max-width: calc(100vw - 2rem); animation: entra 0.18s ease-out;
+}
+.barra-desfazer button { background: none; border: 0; color: #f4d35e; font-weight: 700; padding: 0.3rem 0.4rem; }
+@media (min-width: 1024px) { .barra-desfazer { bottom: 1.5rem; left: calc(50% + 126px); } }
+.zona-perigo { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--linha); }
+.tempo li > div { position: relative; padding-right: 2.6rem; min-width: 0; }
+.tempo li .icone-btn.lixo { position: absolute; right: 0; top: -2px; }
+.tempo li .confirmar { margin-right: -2.6rem; }
+.lista li .icone-btn.lixo { position: absolute; right: 0.5rem; top: 0.5rem; }
+.lista li:has(.icone-btn.lixo) { padding-right: 3.2rem; }
+.lista li .confirmar { margin-right: -2.4rem; }
+.lista li .confirmar .mini { position: static; }
+.lista li:has(.confirmar) { padding-right: 0.9rem; }

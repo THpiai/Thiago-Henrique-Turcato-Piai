@@ -20,6 +20,22 @@ export async function salvar(tabela: TabelaSync, linhas: Linha[]) {
 }
 const aoSalvar = new Set<() => void>()
 
+/** Muda só alguns campos de registros existentes (serve para quem não é o autor, como o gestor). */
+export async function alterar(tabela: TabelaSync, ids: string[], campos: Record<string, unknown>) {
+  await db.transaction('rw', [db.table(tabela), db.fila], async () => {
+    for (const id of ids) await db.table(tabela).update(id, { ...campos, _pendente: 1 })
+    await db.fila.add({ tabela, op: 'update', linhas: ids.map((id) => ({ id, ...campos })), criado_em: new Date().toISOString(), tentativas: 0 })
+  })
+  avisar()
+  aoSalvar.forEach((f) => f())
+}
+
+/** Manda para a lixeira (ou tira dela). Talhão é arquivado; o resto ganha data de exclusão. */
+export const apagar = (tabela: TabelaSync, ids: string[]) =>
+  tabela === 'talhoes' ? alterar(tabela, ids, { ativo: false }) : alterar(tabela, ids, { excluido_em: new Date().toISOString() })
+export const restaurar = (tabela: TabelaSync, ids: string[]) =>
+  tabela === 'talhoes' ? alterar(tabela, ids, { ativo: true }) : alterar(tabela, ids, { excluido_em: null })
+
 /** Operação e seus produtos entram juntos e sobem na ordem certa. */
 export async function salvarOperacao(op: Operacao, produtos: OperacaoProduto[]) {
   await salvar('operacoes', [op as Linha])
@@ -58,7 +74,13 @@ export async function enviar(cli: Cliente): Promise<'ok' | 'sem-rede' | 'com-err
     for (const item of await db.fila.orderBy('seq').toArray()) {
       let status = 0, msg = ''
       try {
-        const r = await cli.from(item.tabela).upsert(item.linhas, { onConflict: 'id' })
+        let r: { status: number; error: { message: string } | null } = { status: 200, error: null }
+        if (item.op === 'update') {
+          for (const { id, ...campos } of item.linhas) {
+            r = await cli.from(item.tabela).update(campos).eq('id', id as string)
+            if (r.error) break
+          }
+        } else r = await cli.from(item.tabela).upsert(item.linhas, { onConflict: 'id' })
         status = r.status
         msg = r.error?.message ?? ''
         if (!r.error) {

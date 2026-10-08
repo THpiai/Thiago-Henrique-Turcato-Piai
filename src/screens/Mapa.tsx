@@ -7,7 +7,8 @@ import { EditorContorno, enquadrarLivre } from '../lib/editor'
 import { cicloAtual } from '../lib/painel'
 import { HEX_CULTURA } from '../lib/opcoes'
 import { fmtN, uuid } from '../lib/formato'
-import { salvar } from '../lib/sync'
+import { apagar, restaurar, salvar } from '../lib/sync'
+import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
 import { Aviso, Rotulo } from '../components/ui'
 import { Icone } from '../components/Icone'
 import type { Talhao } from '../lib/tipos'
@@ -71,6 +72,7 @@ export function Mapa({ abrirTalhao }: { abrirTalhao: (id: string) => void }) {
     const m = mapa.current
     if (!m) return
     const toque = (e: L.LeafletMouseEvent) => {
+      if (editor.current?.recemArrastado()) return
       if (edRef.current && !andando) adicionar([e.latlng.lat, e.latlng.lng])
       else if (!edRef.current) setSelecionado(null)
     }
@@ -175,6 +177,16 @@ export function Mapa({ abrirTalhao }: { abrirTalhao: (id: string) => void }) {
                   <button className="primario" onClick={() => abrirTalhao(talhaoSel.id)}>Ver talhão <Icone n="seta" t={18} /></button>
                   {gestor && <button className="secundario" onClick={() => comecar(talhaoSel)}><Icone n="lapis" t={18} /> Editar contorno</button>}
                 </div>
+                {gestor && (
+                  <div className="acoes">
+                    <BotaoApagar rotulo="Arquivar" pergunta={`Arquivar ${talhaoSel.nome}?`} detalhe="Some do mapa; o histórico fica guardado na Lixeira."
+                      aoConfirmar={() => {
+                        const t = talhaoSel
+                        void apagar('talhoes', [t.id]).then(() => mostrarDesfazer(`${t.nome} arquivado`, () => void restaurar('talhoes', [t.id])))
+                        setSelecionado(null)
+                      }} />
+                  </div>
+                )}
               </div>
             ) : (
               <>

@@ -9,6 +9,10 @@ export class EditorContorno {
   private grupo: L.LayerGroup
   private poli: L.Polygon | L.Polyline | null = null
   private pts: Ponto[] = []
+  private fimArraste = 0
+
+  /** O navegador solta um clique no mapa ao terminar o arraste; esse clique não deve virar ponto novo. */
+  recemArrastado() { return Date.now() - this.fimArraste < 400 }
 
   constructor(
     private mapa: L.Map,
@@ -43,7 +47,7 @@ export class EditorContorno {
       }
       m.on('click', (e) => { L.DomEvent.stop(e); inserir(m.getLatLng()) })
       m.on('drag', () => this.preVisualizar(i + 1, m.getLatLng(), true))
-      m.on('dragend', () => inserir(m.getLatLng()))
+      m.on('dragend', () => { this.fimArraste = Date.now(); inserir(m.getLatLng()) })
       m.addTo(this.grupo)
     }
 
@@ -56,6 +60,7 @@ export class EditorContorno {
       m.on('click', (e) => { L.DomEvent.stop(e); this.aoSelecionar(i === sel ? null : i) })
       m.on('drag', () => this.preVisualizar(i, m.getLatLng(), false))
       m.on('dragend', () => {
+        this.fimArraste = Date.now()
         const ll = m.getLatLng()
         this.aoMudar(pts.map((q, j) => (j === i ? [ll.lat, ll.lng] : q)))
         this.aoSelecionar(i)

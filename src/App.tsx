@@ -16,7 +16,8 @@ import { FormCampo } from './screens/FormCampo'
 import { FormChuva } from './screens/FormChuva'
 import { Estoque } from './screens/Estoque'
 import { Mapa } from './screens/Mapa'
-import { Equipe, Fila, FormCiclo, Insumos, Mais, Safras } from './screens/Mais'
+import { Equipe, Fila, FormCiclo, Insumos, Lixeira, Mais, Safras } from './screens/Mais'
+import { BarraDesfazer } from './components/Apagar'
 
 /** Rota no endereço (#/tela/a/b) para o botão Voltar do celular funcionar. */
 function useRota(): [string[], (r: string) => void] {
@@ -102,12 +103,13 @@ function Casca() {
       case 'insumos': return <Insumos voltar={voltar} />
       case 'equipe': return <Equipe voltar={voltar} />
       case 'fila': return <Fila voltar={voltar} />
+      case 'lixeira': return <Lixeira voltar={voltar} />
       default: return <Inicio abrirTalhao={abrirTalhao} ir={ir} />
     }
   })()
 
   const aba = ['registrar', 'operacao', 'campo', 'chuva'].includes(tela) ? 'registrar'
-    : ['mais', 'safras', 'ciclo', 'insumos', 'equipe', 'fila'].includes(tela) ? 'mais'
+    : ['mais', 'safras', 'ciclo', 'insumos', 'equipe', 'fila', 'lixeira'].includes(tela) ? 'mais'
       : tela === 'talhao' ? 'inicio' : tela
   const abas = [
     { id: 'inicio', t: 'Início', i: 'inicio' }, { id: 'mapa', t: 'Mapa', i: 'mapa' },
@@ -116,7 +118,7 @@ function Casca() {
   // No computador a barra lateral mostra também os cadastros.
   const extras = [
     ...(gestor ? [{ id: 'safras', t: 'Safras', i: 'folha' }, { id: 'insumos', t: 'Insumos', i: 'frasco' }] : []),
-    { id: 'equipe', t: 'Equipe', i: 'pessoas' }, { id: 'fila', t: 'Envio', i: 'sinal' },
+    { id: 'equipe', t: 'Equipe', i: 'pessoas' }, { id: 'lixeira', t: 'Lixeira', i: 'lixo' }, { id: 'fila', t: 'Envio', i: 'sinal' },
   ]
   return (
     <div className={tela === 'mapa' ? 'app com-mapa' : 'app'}>
@@ -142,6 +144,7 @@ function Casca() {
         <div className="rodape-lateral"><BarraSync /><small>{eu.nome} · {eu.perfil}</small></div>
       </nav>
       <main className={tela === 'mapa' ? 'conteudo cheio' : 'conteudo'}>{conteudo}</main>
+      <BarraDesfazer />
     </div>
   )
 }

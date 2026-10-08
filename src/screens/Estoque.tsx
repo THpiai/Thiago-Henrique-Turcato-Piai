@@ -3,7 +3,9 @@ import { db } from '../lib/db'
 import { useLive, useSessao } from '../lib/hooks'
 import { MOVIMENTOS } from '../lib/opcoes'
 import { fmtN, hojeISO, num, uuid } from '../lib/formato'
-import { salvar } from '../lib/sync'
+import { apagar, restaurar, salvar } from '../lib/sync'
+import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
+import { fmtData } from '../lib/formato'
 import { Aviso, Escolha, Rotulo } from '../components/ui'
 
 /** Saldo do servidor mais o que ainda está só no celular. */
@@ -13,12 +15,14 @@ function useSaldos() {
       db.insumos.orderBy('nome').toArray(), db.saldos.toArray(),
       db.estoque_mov.filter((m) => m._pendente === 1).toArray(), db.operacao_produtos.filter((p) => p._pendente === 1).toArray(),
     ])
+    // Pendente no celular entra no saldo até o servidor confirmar; o que foi para a lixeira não conta.
+    const opsApagadas = new Set((await db.operacoes.filter((o) => !!o.excluido_em).toArray()).map((o) => o.id))
     return insumos.filter((i) => i.ativo !== false).map((i) => {
       const s = saldos.find((x) => x.insumo_id === i.id)
       let local = 0
-      for (const m of movs.filter((x) => x.insumo_id === i.id))
+      for (const m of movs.filter((x) => x.insumo_id === i.id && !x.excluido_em))
         local += m.movimento === 'Saída avulsa' ? -Number(m.quantidade) : Number(m.quantidade)
-      for (const p of prods.filter((x) => x.insumo_id === i.id)) local -= Number(p.quantidade_total ?? 0)
+      for (const p of prods.filter((x) => x.insumo_id === i.id && !opsApagadas.has(x.operacao_id))) local -= Number(p.quantidade_total ?? 0)
       const saldo = Number(s?.saldo ?? 0) + local
       return { insumo: i, saldo, local, custo: s?.custo_medio ?? null, baixo: i.estoque_minimo != null && saldo < Number(i.estoque_minimo) }
     })
@@ -54,6 +58,7 @@ export function Estoque() {
         </div>
       )}
       {valor > 0 && <p className="mudo">Valor em estoque (custo médio): <b>R$ {fmtN(valor, 0)}</b></p>}
+      <Movimentos />
     </div>
   )
 }
@@ -108,5 +113,31 @@ function FormMovimento({ pronto }: { pronto: () => void }) {
       <Rotulo t="Observação"><input value={obs} onChange={(e) => setObs(e.target.value)} /></Rotulo>
       <button className="primario fixo" disabled={!insumoId || num(qtd) == null}>Salvar</button>
     </form>
+  )
+}
+
+/** Últimos movimentos lançados, para corrigir um lançamento errado. */
+function Movimentos() {
+  const { eu, gestor } = useSessao()
+  const movs = useLive(async () => (await db.estoque_mov.orderBy('data').reverse().toArray()).filter((m) => !m.excluido_em).slice(0, 30))
+  const insumos = useLive(() => db.insumos.toArray()) ?? []
+  if (!movs?.length) return null
+  const nome = (id: string) => insumos.find((i) => i.id === id)
+  return (
+    <section>
+      <h2>Últimos movimentos</h2>
+      <ul className="lista">
+        {movs.map((m) => (
+          <li key={m.id}>
+            <b>{m.movimento}</b> · {nome(m.insumo_id)?.nome ?? 'insumo'} {fmtN(Number(m.quantidade), 2)} {nome(m.insumo_id)?.unidade}
+            <small>{fmtData(m.data)}{m.valor_total != null ? ` · R$ ${fmtN(Number(m.valor_total), 2)}` : ''}{m.nota_fiscal ? ` · NF ${m.nota_fiscal}` : ''}{m.fornecedor ? ` · ${m.fornecedor}` : ''}</small>
+            {(gestor || m.autor_id === eu.id) && (
+              <BotaoApagar pergunta="Apagar este movimento?" detalhe="O saldo é recalculado. Dá para restaurar na Lixeira."
+                aoConfirmar={() => void apagar('estoque_mov', [m.id]).then(() => mostrarDesfazer('Movimento apagado', () => void restaurar('estoque_mov', [m.id])))} />
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

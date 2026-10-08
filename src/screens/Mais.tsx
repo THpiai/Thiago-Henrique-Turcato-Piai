@@ -2,8 +2,10 @@ import { useState, type FormEvent } from 'react'
 import { db } from '../lib/db'
 import { useLive, useSessao } from '../lib/hooks'
 import { CULTURAS, ESTADIOS_CANA, ESTADIOS_GRAOS, STATUS_CICLO, TIPOS_INSUMO, UNIDADES } from '../lib/opcoes'
-import { fmtData, fmtDataHora, hojeISO, num, uuid } from '../lib/formato'
-import { salvar } from '../lib/sync'
+import { fmtData, fmtDataHora, fmtN, hojeISO, num, uuid } from '../lib/formato'
+import type { TabelaSync } from '../lib/db'
+import { apagar, restaurar, salvar } from '../lib/sync'
+import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
 import { Aviso, Escolha, Rotulo } from '../components/ui'
 import { Icone } from '../components/Icone'
 import type { Ciclo, Insumo } from '../lib/tipos'
@@ -17,6 +19,7 @@ export function Mais({ ir }: { ir: (tela: string) => void }) {
         {gestor && <button onClick={() => ir('safras')}><span className="icone"><Icone n="folha" t={26} /></span><span><b>Safras</b><small>Cultura, cultivar, plantio, estádio e colheita por talhão</small></span></button>}
         {gestor && <button onClick={() => ir('insumos')}><span className="icone"><Icone n="frasco" t={26} /></span><span><b>Insumos</b><small>Produtos, unidade e estoque mínimo</small></span></button>}
         <button onClick={() => ir('equipe')}><span className="icone"><Icone n="pessoas" t={26} /></span><span><b>Equipe</b><small>Quem usa o app</small></span></button>
+        <button onClick={() => ir('lixeira')}><span className="icone"><Icone n="lixo" t={26} /></span><span><b>Lixeira</b><small>Registros apagados e talhões arquivados</small></span></button>
         <button onClick={() => ir('fila')}><span className="icone"><Icone n="sinal" t={26} /></span><span><b>Envio</b><small>O que está guardado no celular</small></span></button>
       </div>
       <p className="mudo">Conectado como {eu.nome} ({eu.email}) · {eu.perfil}</p>
@@ -27,7 +30,7 @@ export function Mais({ ir }: { ir: (tela: string) => void }) {
 
 export function Safras({ voltar, abrir }: { voltar: () => void; abrir: (talhaoId: string, cicloId?: string) => void }) {
   const talhoes = useLive(() => db.talhoes.orderBy('nome').toArray()) ?? []
-  const ciclos = useLive(() => db.ciclos.toArray()) ?? []
+  const ciclos = (useLive(() => db.ciclos.toArray()) ?? []).filter((c) => !c.excluido_em)
   return (
     <div className="tela">
       <button className="voltar" onClick={voltar}>‹ Mais</button>
@@ -124,6 +127,13 @@ function FormCicloCampos({ talhaoId, talhaoNome, c, pronto }: { talhaoId: string
       </fieldset>
       <Rotulo t="Observação"><input value={f.observacao} onChange={(e) => s('observacao')(e.target.value)} /></Rotulo>
       <button className="primario fixo" disabled={!f.cultura || !f.safra}>Salvar safra</button>
+      {c && (
+        <section className="zona-perigo">
+          <BotaoApagar rotulo="Apagar safra" pergunta={`Apagar ${c.safra} (${c.cultura})?`}
+            detalhe="As operações continuam no talhão. Dá para restaurar na Lixeira."
+            aoConfirmar={() => void apagar('ciclos', [c.id]).then(() => { mostrarDesfazer('Safra apagada', () => void restaurar('ciclos', [c.id])); pronto() })} />
+        </section>
+      )}
     </form>
   )
 }
@@ -201,6 +211,46 @@ export function Fila({ voltar }: { voltar: () => void }) {
               <b>{i.tabela.replace('_', ' ')}</b> · {i.linhas.length} linha(s)
               <small>Gravado {fmtDataHora(i.criado_em)}{i.erro ? ` · servidor recusou: ${i.erro}` : ' · aguardando sinal'}</small>
               {i.erro && <button className="mini" onClick={() => void db.fila.delete(i.seq!)}>Descartar</button>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+type ItemLixeira = { id: string; tabela: TabelaSync; tipo: string; titulo: string; detalhe: string; quando: string }
+
+/** Tudo que foi apagado ou arquivado, com opção de restaurar. */
+export function Lixeira({ voltar }: { voltar: () => void }) {
+  const { eu, gestor } = useSessao()
+  const itens = useLive(async (): Promise<ItemLixeira[]> => {
+    const talhoes = await db.talhoes.toArray()
+    const nomeT = (id?: string | null) => talhoes.find((t) => t.id === id)?.nome ?? ''
+    const insumos = await db.insumos.toArray()
+    const meu = (a?: string | null) => gestor || a === eu.id
+    const fora = <T extends { excluido_em?: string | null }>(l: T[]) => l.filter((x) => !!x.excluido_em)
+    return [
+      ...(gestor ? talhoes.filter((t) => t.ativo === false).map((t) => ({ id: t.id, tabela: 'talhoes' as const, tipo: 'Talhão arquivado', titulo: t.nome, detalhe: `${fmtN(Number(t.area_ha), 2)} ha`, quando: '' })) : []),
+      ...fora(await db.operacoes.toArray()).filter((o) => meu(o.autor_id)).map((o) => ({ id: o.id, tabela: 'operacoes' as const, tipo: 'Operação', titulo: `${o.tipo}${o.alvo ? ' · ' + o.alvo : ''}`, detalhe: `${nomeT(o.talhao_id)} · ${fmtDataHora(o.data_hora)}`, quando: o.excluido_em! })),
+      ...fora(await db.campo.toArray()).filter((c) => meu(c.autor_id)).map((c) => ({ id: c.id, tabela: 'campo' as const, tipo: 'Monitoramento', titulo: `${c.tipo}${c.alvo ? ' · ' + c.alvo : ''}`, detalhe: `${nomeT(c.talhao_id)} · ${fmtDataHora(c.data_hora)}`, quando: c.excluido_em! })),
+      ...fora(await db.chuva.toArray()).filter((c) => meu(c.autor_id)).map((c) => ({ id: c.id, tabela: 'chuva' as const, tipo: 'Chuva', titulo: `${fmtN(Number(c.milimetros), 1)} mm`, detalhe: `${nomeT(c.talhao_id)} · ${fmtData(c.data)}`, quando: c.excluido_em! })),
+      ...fora(await db.estoque_mov.toArray()).filter((m) => meu(m.autor_id)).map((m) => ({ id: m.id, tabela: 'estoque_mov' as const, tipo: 'Estoque', titulo: `${m.movimento} · ${insumos.find((i) => i.id === m.insumo_id)?.nome ?? ''}`, detalhe: `${fmtN(Number(m.quantidade), 2)} · ${fmtData(m.data)}`, quando: m.excluido_em! })),
+      ...(gestor ? fora(await db.ciclos.toArray()).map((c) => ({ id: c.id, tabela: 'ciclos' as const, tipo: 'Safra', titulo: `${c.safra} · ${c.cultura}`, detalhe: nomeT(c.talhao_id), quando: c.excluido_em! })) : []),
+    ].sort((a, b) => b.quando.localeCompare(a.quando))
+  }, [gestor, eu.id])
+  return (
+    <div className="tela">
+      <button className="voltar" onClick={voltar}>‹ Mais</button>
+      <h1>Lixeira</h1>
+      <p className="mudo">O que foi apagado não entra no painel, no estoque nem no custo. Restaurar devolve tudo como estava.</p>
+      {!itens ? null : itens.length === 0 ? <Aviso tipo="ok">A lixeira está vazia.</Aviso> : (
+        <ul className="lista">
+          {itens.map((i) => (
+            <li key={i.tabela + i.id}>
+              <span className="tag">{i.tipo}</span> <b>{i.titulo}</b>
+              <small>{i.detalhe}{i.quando ? ` · apagado em ${fmtDataHora(i.quando)}` : ''}</small>
+              <button className="mini" onClick={() => void restaurar(i.tabela, [i.id])}>Restaurar</button>
             </li>
           ))}
         </ul>

@@ -16,7 +16,7 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
   const { pos } = useGps()
   const insumos = useLive(() => db.insumos.orderBy('nome').toArray()) ?? []
   const talhoes = useLive(() => db.talhoes.toArray()) ?? []
-  const ciclos = useLive(() => db.ciclos.toArray()) ?? []
+  const ciclos = (useLive(() => db.ciclos.toArray()) ?? []).filter((c) => !c.excluido_em)
   const sedes = useLive(() => db.sedes.toArray()) ?? []
   const clima = useLive(() => db.clima.toArray()) ?? []
   const [talhaoId, setTalhaoId] = useState('')
