@@ -1,5 +1,7 @@
 // Busca chuva diária e clima horário no Open-Meteo para cada sede e grava no banco.
 // Chamada pelo agendador (pg_cron) duas vezes por dia. Idempotente: pode rodar quantas vezes quiser.
+// Só roda com o código do agendador (cabeçalho x-clima-token, guardado no cofre do banco): a chave
+// anon é pública e, sem isso, qualquer um poderia disparar a função à vontade.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -12,7 +14,11 @@ async function idFixo(texto: string) {
   return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  const token = req.headers.get('x-clima-token') ?? ''
+  const ok = token.length >= 32 && (await db.rpc('clima_token_confere', { t: token })).data === true
+  if (!ok) return Response.json({ erro: 'não autorizado' }, { status: 401 })
+
   const { data: sedes, error } = await db.from('sedes').select('id,nome,latitude,longitude')
   if (error) return Response.json({ erro: error.message }, { status: 500 })
   const { count } = await db.from('chuva').select('id', { count: 'exact', head: true }).eq('fonte', 'Estimativa automática')

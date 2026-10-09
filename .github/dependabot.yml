@@ -1,0 +1,24 @@
+# Atualização de dependências: uma vez por mês, num pedido só, e na hora quando
+# houver falha de segurança. Cada pedido passa pela revisão de segurança antes de entrar.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3
+    groups:
+      dependencias:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: '@types/react*'
+        update-types: [version-update:semver-major]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    groups:
+      acoes:
+        patterns: ['*']

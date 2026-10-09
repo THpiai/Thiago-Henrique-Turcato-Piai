@@ -266,7 +266,7 @@ export function Equipe({ voltar }: { voltar: () => void }) {
       <ul className="lista">
         {pessoas.map((p) => <li key={p.id}><b>{p.nome}</b><small>{p.email} · {p.perfil}{p.ativo ? '' : ' · inativo'}</small></li>)}
       </ul>
-      {dono && <Aviso>Para liberar alguém: a pessoa cria a conta no app com o próprio e-mail e você me avisa o nome e a função. A tela de convite entra numa próxima versão.</Aviso>}
+      {dono && <Aviso>Para liberar alguém: me avise o e-mail, o nome e a função da pessoa. Só depois do convite ela consegue criar a conta no app (cadastro sem convite é recusado).</Aviso>}
     </div>
   )
 }

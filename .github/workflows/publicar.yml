@@ -3,6 +3,7 @@ name: Publicar app
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -11,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: ${{ github.event_name == 'pull_request' && format('revisao-{0}', github.ref) || 'pages' }}
   cancel-in-progress: true
 
 jobs:
@@ -19,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # histórico inteiro, para procurar segredo em commits antigos
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -26,12 +29,20 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # Revisão de segurança antes de publicar: se reprovar, nada vai para o ar.
+      - name: Revisão de segurança
+        run: npm run revisao
+      - name: Procura segredo em todo o histórico (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
     needs: build
+    if: github.event_name != 'pull_request' # PR só passa pela revisão; publica só o que entra em main
     runs-on: ubuntu-latest
     environment:
       name: github-pages

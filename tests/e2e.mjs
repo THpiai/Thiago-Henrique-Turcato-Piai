@@ -101,6 +101,8 @@ console.log('navegador ok')
 const pagina = await ctx.newPage()
 const erros = []
 pagina.on('pageerror', (e) => erros.push(String(e)))
+// Regra de segurança (CSP) bloqueando algo do próprio app também é erro.
+pagina.on('console', (m) => { if (/Content Security Policy/i.test(m.text())) erros.push(m.text()) })
 const foto = (n) => pagina.screenshot({ path: `${SAIDA}/${n}.png` })
 const espera = (t, ms = 10000) => pagina.getByText(t).first().waitFor({ timeout: ms })
 const ok = (cond, msg) => { if (!cond) throw new Error('FALHOU: ' + msg); console.log('✔', msg) }
@@ -147,6 +149,15 @@ try {
   await espera('1 guardado(s) no celular')
   ok(recebidos.length === 0, 'nada foi enviado sem sinal')
   await espera('Olá, Thiago')
+
+  // Validação: valor absurdo não é salvo e a pessoa vê o motivo.
+  await pagina.getByRole('button', { name: /Registrar/ }).click()
+  await pagina.getByRole('button', { name: /Chuva/ }).click()
+  await pagina.getByPlaceholder('mm').first().fill('900')
+  await pagina.getByRole('button', { name: 'Salvar leituras' }).click()
+  await espera('Não salvei. Chuva (mm): use um valor entre 0 e 400.')
+  ok((await pagina.evaluate(() => new Promise((ok) => { const r = indexedDB.open('flor-da-mata'); r.onsuccess = () => { const t = r.result.transaction('fila').objectStore('fila').count(); t.onsuccess = () => ok(t.result) } }))) === 2,
+    'chuva de 900 mm recusada antes de entrar na fila')
 
   // Problema registrado rápido, ainda sem sinal: tipo, nome, gravidade, quem viu e foto.
   const t0 = Date.now()
