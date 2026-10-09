@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#2f5d3a" />
+    <!-- Segurança: o GitHub Pages não aceita cabeçalhos próprios, então as regras vão aqui.
+         Só carrega código do próprio app e só conversa com o Supabase e com o mapa de satélite. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://*.tile.openstreetmap.org https://wdsaiwehttuvduhdflwv.supabase.co; font-src 'self' data:; connect-src 'self' https://wdsaiwehttuvduhdflwv.supabase.co wss://wdsaiwehttuvduhdflwv.supabase.co https://server.arcgisonline.com https://*.tile.openstreetmap.org; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <link rel="icon" href="./icon.svg" />
     <title>Flor da Mata</title>
   </head>

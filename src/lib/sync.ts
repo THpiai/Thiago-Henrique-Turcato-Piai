@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { db, gravarMeta, TABELAS_CADASTRO, TABELAS_REGISTRO, type TabelaSync } from './db'
 import type { Ciclo, Operacao, OperacaoProduto } from './tipos'
+import { checar } from './validar'
 
 type Cliente = Pick<SupabaseClient, 'from'> & Partial<Pick<SupabaseClient, 'storage'>>
 type Linha = Record<string, unknown> & { id: string }
@@ -11,6 +12,7 @@ const semLocais = (l: Record<string, unknown>) =>
 
 /** Grava no celular na hora e põe na fila de envio. Funciona sem sinal. */
 export async function salvar(tabela: TabelaSync, linhas: Linha[]) {
+  checar(tabela, linhas)
   await db.transaction('rw', [db.table(tabela), db.fila], async () => {
     await db.table(tabela).bulkPut(linhas.map((l) => ({ ...l, _pendente: 1 })))
     await db.fila.add({ tabela, linhas: linhas.map(semLocais), criado_em: new Date().toISOString(), tentativas: 0 })
@@ -22,6 +24,7 @@ const aoSalvar = new Set<() => void>()
 
 /** Muda só alguns campos de registros existentes (serve para quem não é o autor, como o gestor). */
 export async function alterar(tabela: TabelaSync, ids: string[], campos: Record<string, unknown>) {
+  checar(tabela, [campos])
   await db.transaction('rw', [db.table(tabela), db.fila], async () => {
     for (const id of ids) await db.table(tabela).update(id, { ...campos, _pendente: 1 })
     await db.fila.add({ tabela, op: 'update', linhas: ids.map((id) => ({ id, ...campos })), criado_em: new Date().toISOString(), tentativas: 0 })
@@ -39,6 +42,8 @@ export const restaurar = (tabela: TabelaSync, ids: string[]) =>
 /** Operação e seus produtos entram juntos e sobem na ordem certa.
  *  Plantio sem safra aberta: a safra aparece na hora no celular e o servidor cria a dele com o mesmo id. */
 export async function salvarOperacao(op: Operacao, produtos: OperacaoProduto[], novaSafra?: Ciclo) {
+  checar('operacoes', [op]); checar('operacao_produtos', produtos)
+  if (novaSafra) checar('ciclos', [novaSafra])
   if (novaSafra) await db.ciclos.put({ ...novaSafra, _auto: 1 } as Ciclo)
   await salvar('operacoes', [op as Linha])
   if (produtos.length) await salvar('operacao_produtos', produtos as Linha[])

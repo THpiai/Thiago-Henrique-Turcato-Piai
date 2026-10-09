@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Icone } from './Icone'
+import { ouvirErroValidacao } from '../lib/validar'
 
 /** Lixeira com confirmação no próprio lugar (sem janela). */
 export function BotaoApagar({ pergunta, detalhe, aoConfirmar, rotulo }: { pergunta: string; detalhe?: string; aoConfirmar: () => void; rotulo?: string }) {
@@ -43,6 +44,24 @@ export function BarraDesfazer() {
     <div className="barra-desfazer" role="status">
       <span>{a.texto}</span>
       <button onClick={() => { a.desfazer(); setA(null) }}>Desfazer</button>
+    </div>
+  )
+}
+
+/** Mostra por que um formulário não foi salvo (valor fora da faixa, data errada…). */
+export function BarraErro() {
+  const [msg, setMsg] = useState<string | null>(null)
+  useEffect(() => ouvirErroValidacao(setMsg), [])
+  useEffect(() => {
+    if (!msg) return
+    const t = setTimeout(() => setMsg(null), 8000)
+    return () => clearTimeout(t)
+  }, [msg])
+  if (!msg) return null
+  return (
+    <div className="barra-desfazer barra-erro" role="alert">
+      <span>Não salvei. {msg}</span>
+      <button onClick={() => setMsg(null)}>Ok</button>
     </div>
   )
 }

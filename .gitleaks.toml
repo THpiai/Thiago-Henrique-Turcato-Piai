@@ -1,0 +1,13 @@
+# Regras padrão do gitleaks + exceção para a chave anon do Supabase, que é pública por
+# natureza (papel "anon", vai no app e no agendador). Só o token cujo conteúdo diz
+# role "anon" deste projeto é liberado; qualquer outro JWT continua barrado.
+# A revisão (scripts/revisao-seguranca.mjs) confere o papel de todo JWT no código.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Chave anon pública do Supabase (projeto wdsaiwehttuvduhdflwv)"
+regexTarget = "match"
+regexes = [
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkc2Fpd2VodHR1dmR1aGRmbHd2Iiwicm9sZSI6ImFub24i[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+''',
+]

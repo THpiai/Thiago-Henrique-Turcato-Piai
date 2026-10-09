@@ -327,6 +327,8 @@ fieldset > .secundario { margin-bottom: 0.8rem; }
 }
 .barra-desfazer button { background: none; border: 0; color: #f4d35e; font-weight: 700; padding: 0.3rem 0.4rem; }
 @media (min-width: 1024px) { .barra-desfazer { bottom: 1.5rem; left: calc(50% + 126px); } }
+.barra-erro { background: #7a2318; }
+.barra-erro button { color: #fff; }
 .zona-perigo { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--linha); }
 .tempo li > div { position: relative; padding-right: 2.6rem; min-width: 0; }
 .tempo li .icone-btn.lixo { position: absolute; right: 0; top: -2px; }

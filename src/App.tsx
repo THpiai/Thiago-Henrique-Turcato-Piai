@@ -18,7 +18,7 @@ import { Estoque } from './screens/Estoque'
 import { Mapa } from './screens/Mapa'
 import { Safra } from './screens/Safra'
 import { Equipe, Fila, FormCiclo, Insumos, Lixeira, Mais, Safras } from './screens/Mais'
-import { BarraDesfazer } from './components/Apagar'
+import { BarraDesfazer, BarraErro } from './components/Apagar'
 
 /** Rota no endereço (#/tela/a/b) para o botão Voltar do celular funcionar. */
 function useRota(): [string[], (r: string) => void] {
@@ -148,6 +148,7 @@ function Casca() {
       </nav>
       <main className={tela === 'mapa' ? 'conteudo cheio' : 'conteudo'}>{conteudo}</main>
       <BarraDesfazer />
+      <BarraErro />
     </div>
   )
 }
