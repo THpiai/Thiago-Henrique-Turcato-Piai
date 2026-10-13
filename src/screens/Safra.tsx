@@ -8,6 +8,8 @@ import { contornoParaPontos, type Ponto } from '../lib/geo'
 import { fmtN } from '../lib/formato'
 import { Aviso } from '../components/ui'
 import { Estadio } from './Talhao'
+import { FiltroTalhoes } from '../components/FiltroTalhoes'
+import { naSelecao, useSelecao } from '../lib/filtro'
 
 const SATELITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
 const COR = { bom: '#3f9a4a', atencao: '#e0a526', critico: '#d6452f', 'sem-dados': '#8a8270' } as const
@@ -25,8 +27,9 @@ export function Safra({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; 
   const atual = safras.find((s) => s.nome === escolhida)?.nome ?? safras[0]?.nome ?? null
 
   const resumos = useMemo(() => (d ? d.talhoes.map((t) => resumoTalhao(t, d)) : []), [d])
-  // Talhões da safra: os que têm ciclo nesse conjunto (a safra atual de cada talhão).
-  const daSafra = useMemo(() => {
+  const [sel] = useSelecao()
+  // Talhões da safra: os que têm ciclo nesse conjunto (a safra atual de cada talhão), dentro do filtro de talhões.
+  const todaSafra = useMemo(() => {
     if (!d || !atual) return [] as Resumo[]
     return d.talhoes.flatMap((t) => {
       const c = d.ciclos.filter((x) => x.talhao_id === t.id && grupoSafra(x) === atual)
@@ -36,6 +39,8 @@ export function Safra({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; 
       return [r.ciclo?.id === c.id ? r : resumoTalhao(t, { ...d, ciclos: d.ciclos.filter((x) => x.talhao_id !== t.id || x.id === c.id) })]
     }).sort((a, b) => ORDEM[a.estado.nivel] - ORDEM[b.estado.nivel] || a.talhao.nome.localeCompare(b.talhao.nome, 'pt-BR', { numeric: true }))
   }, [d, atual, resumos])
+  const daSafra = useMemo(() => todaSafra.filter((r) => naSelecao(sel, r.talhao.id)), [todaSafra, sel])
+  const noMapa = useMemo(() => (d ? d.talhoes.filter((t) => naSelecao(sel, t.id)) : []), [d, sel])
 
   if (!d) return <p className="vazio">Carregando…</p>
   const area = daSafra.reduce((s, r) => s + Number(r.talhao.area_ha), 0)
@@ -60,15 +65,17 @@ export function Safra({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; 
         <Aviso>Nenhuma safra ainda. Ela começa sozinha quando o Plantio é registrado em um talhão (Registrar › Operação).</Aviso>
       ) : (
         <>
+          {resumos.length > 1 && <FiltroTalhoes resumos={resumos} d={d} />}
+          {!daSafra.length && <Aviso>Nenhum talhão escolhido no filtro está nesta safra.</Aviso>}
           <p className="mudo resumo-safra">
-            {daSafra.length} talhões · {fmtN(area, 1)} ha{porCultura.size > 1 || atual.startsWith('Safrinha') ? ' · ' + [...porCultura].map(([c, ha]) => `${c} ${fmtN(ha, 1)} ha`).join(' · ') : ''}
+            {daSafra.length} talhões{daSafra.length < todaSafra.length ? ` de ${todaSafra.length}` : ''} · {fmtN(area, 1)} ha{porCultura.size > 1 || atual.startsWith('Safrinha') ? ' · ' + [...porCultura].map(([c, ha]) => `${c} ${fmtN(ha, 1)} ha`).join(' · ') : ''}
           </p>
           <div className="contagem-cores">
             <span className="selo critico">{conta('critico')} crítico</span>
             <span className="selo atencao">{conta('atencao')} atenção</span>
             <span className="selo bom">{conta('bom')} em dia</span>
           </div>
-          <MapaSafra resumos={daSafra} talhoes={d.talhoes} abrir={abrirTalhao} />
+          <MapaSafra resumos={daSafra} talhoes={noMapa} abrir={abrirTalhao} />
           <ul className="lista-safra">
             {daSafra.map((r) => (
               <li key={r.talhao.id}>
@@ -84,8 +91,8 @@ export function Safra({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; 
               </li>
             ))}
           </ul>
-          {d.talhoes.length > daSafra.length && (
-            <p className="mudo">{d.talhoes.length - daSafra.length} talhão(ões) fora desta safra. <button className="link" onClick={() => ir('mapa')}>Ver todos no mapa</button></p>
+          {d.talhoes.length > todaSafra.length && (
+            <p className="mudo">{d.talhoes.length - todaSafra.length} talhão(ões) fora desta safra. <button className="link" onClick={() => ir('mapa')}>Ver todos no mapa</button></p>
           )}
         </>
       )}

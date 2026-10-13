@@ -126,11 +126,11 @@ function Casca() {
   return (
     <div className={tela === 'mapa' ? 'app com-mapa' : 'app'}>
       <header className="topo-app">
-        <span className="marca-app"><img src="./icon.svg" alt="" width={28} height={28} /><span>Flor da Mata</span></span>
+        <span className="marca-app"><img src="./icon-192.png" alt="" width={30} height={30} /><span><b>PIAI</b><small>Fazenda Controle Total</small></span></span>
         <BarraSync />
       </header>
       <nav className="abas" aria-label="Principal">
-        <span className="marca-lateral"><img src="./icon.svg" alt="" width={34} height={34} /><span><b>Flor da Mata</b><small>Gestão da fazenda</small></span></span>
+        <span className="marca-lateral"><img src="./icon-192.png" alt="" width={40} height={40} /><span><b>PIAI</b><small>Fazenda Controle Total</small><small className="fazenda">Flor da Mata</small></span></span>
         {abas.map((x) => (
           <button key={x.id} className={aba === x.id && !(x.id === 'mais' && extras.some((e) => e.id === tela)) ? 'on' : ''} onClick={() => ir(x.id)} aria-current={aba === x.id ? 'page' : undefined}>
             <Icone n={x.i} />{x.t}

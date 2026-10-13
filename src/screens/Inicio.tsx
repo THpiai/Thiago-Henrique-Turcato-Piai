@@ -6,14 +6,17 @@ import { COR_CULTURA } from '../lib/opcoes'
 import { fmtData, fmtDataHora, fmtN } from '../lib/formato'
 import { Aviso } from '../components/ui'
 import { Icone } from '../components/Icone'
+import { FiltroTalhoes, useFiltrados } from '../components/FiltroTalhoes'
 
 export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; ir: (tela: string) => void }) {
   const d = useDados()
   const { eu, gestor } = useSessao()
-  const resumos = useMemo(() => (d ? d.talhoes.map((t) => resumoTalhao(t, d)) : []), [d])
+  const todos = useMemo(() => (d ? d.talhoes.map((t) => resumoTalhao(t, d)) : []), [d])
+  // Filtro de talhões: números, grade e Atenção mostram só os talhões escolhidos.
+  const resumos = useFiltrados(todos)
   if (!d) return <p className="vazio">Carregando…</p>
 
-  const areaTotal = d.talhoes.reduce((s, t) => s + Number(t.area_ha), 0)
+  const areaTotal = resumos.reduce((s, r) => s + Number(r.talhao.area_ha), 0)
   const emCampo = resumos.filter((r) => r.ciclo?.status === 'Em andamento')
   const abertos = resumos.reduce((n, r) => n + r.problemas.filter((p) => p.situacao === 'aberto').length, 0)
   const criticos = resumos.filter((r) => r.estado.nivel === 'critico').length
@@ -21,6 +24,7 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
   // Talhões com ponto de atenção agora, do crítico ao de atenção.
   const pedem = resumos.filter((r) => (r.estado.nivel === 'critico' || r.estado.nivel === 'atencao') && r.estado.agora)
     .sort((a, b) => Number(b.estado.nivel === 'critico') - Number(a.estado.nivel === 'critico'))
+  const filtrando = resumos.length < todos.length
   const chuva7 = resumos.length ? Math.max(...resumos.map((r) => r.chuva7)) : Math.max(0, ...d.sedes.map((s) => chuvaPeriodo(null, d.chuva, 7, s.id)))
 
   return (
@@ -35,8 +39,10 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
         </Aviso>
       )}
 
+      {todos.length > 1 && <FiltroTalhoes resumos={todos} d={d} />}
+
       <section className="kpis">
-        <div><b>{fmtN(areaTotal, 1)}</b><span>ha em {d.talhoes.length} talhões</span></div>
+        <div><b>{fmtN(areaTotal, 1)}</b><span>ha em {resumos.length} talhões{filtrando ? ' escolhidos' : ''}</span></div>
         <div><b>{emCampo.length}</b><span>com lavoura em campo</span></div>
         <div className={criticos ? 'alerta' : ''}><b>{abertos}</b><span>problemas abertos{criticos ? ` · ${criticos} talhão(ões) crítico(s)` : ''}</span></div>
         <div><b>{fmtN(chuva7, 0)} mm</b><span>chuva em 7 dias</span></div>
@@ -45,7 +51,7 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
       <div className="layout-inicio">
         <div>
           <section>
-            <h2>Talhões</h2>
+            <h2>Talhões{filtrando ? ` · ${resumos.length} de ${todos.length}` : ''}</h2>
             <div className="grade-talhoes">
               {resumos.map((r) => <CartaoTalhao key={r.talhao.id} r={r} abrir={() => abrirTalhao(r.talhao.id)} />)}
             </div>
