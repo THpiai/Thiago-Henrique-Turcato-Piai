@@ -109,6 +109,9 @@ const ok = (cond, msg) => { if (!cond) throw new Error('FALHOU: ' + msg); consol
 
 try {
   await pagina.goto(BASE)
+  await pagina.getByAltText('PIAI – Fazenda Controle Total').waitFor()
+  ok(await pagina.title() === 'PIAI – Fazenda Controle Total', 'entrada com a logo e o nome PIAI')
+  await foto('0-entrada')
   await pagina.getByLabel('E-mail').fill(eu.email)
   await pagina.getByLabel('Senha').fill('senha-de-teste')
   await pagina.getByRole('button', { name: 'Entrar' }).click()
@@ -119,6 +122,33 @@ try {
   await espera('Janela para pulverizar')
   ok(true, 'login e painel carregados, com clima das sedes')
   await foto('1-inicio')
+
+  // Filtro de talhões estilo BI: atalho por cultura, vale no Início e na Safra, fica guardado e limpa com um toque.
+  await pagina.getByRole('button', { name: /Todos os talhões/ }).click()
+  await pagina.getByRole('dialog', { name: 'Escolher talhões' }).waitFor()
+  await pagina.getByRole('button', { name: /^Soja 2/ }).click()
+  await pagina.getByPlaceholder('Buscar talhão').fill('baixada')
+  ok(await pagina.locator('.lista-marcar li').count() === 1, 'busca no seletor acha o talhão sem diferença de maiúscula')
+  await pagina.getByPlaceholder('Buscar talhão').fill('')
+  await foto('1b-filtro-talhoes')
+  await pagina.getByRole('button', { name: 'Mostrar 2 talhões' }).click()
+  await espera('2 de 4 talhões')
+  await pagina.waitForTimeout(300)
+  await foto('1c-inicio-filtrado')
+  ok(await pagina.locator('.grade-talhoes .talhao').count() === 2, 'Início mostra só os talhões escolhidos')
+  ok(await pagina.locator('.kpis').getByText('ha em 2 talhões escolhidos').count() === 1, 'números do Início seguem o filtro')
+  await pagina.reload()
+  await espera('2 de 4 talhões')
+  ok(true, 'filtro continua depois de reabrir o app')
+  await pagina.locator('.abas').getByRole('button', { name: 'Safra', exact: true }).click()
+  await espera('Soja 2026/27')
+  await espera('2 de 4 talhões')
+  await pagina.waitForTimeout(300)
+  await foto('1d-safra-filtrada')
+  await pagina.locator('.abas').getByRole('button', { name: /Início/ }).click()
+  await pagina.getByRole('button', { name: /Limpar filtro/ }).click()
+  await espera('Todos os talhões')
+  ok(await pagina.locator('.grade-talhoes .talhao').count() === 4, 'Limpar volta a mostrar todos')
 
   // Service worker pronto para abrir sem sinal.
   await pagina.evaluate(() => navigator.serviceWorker.ready)

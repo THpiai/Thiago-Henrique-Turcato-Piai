@@ -37,9 +37,9 @@ export function Login() {
   return (
     <main className="login">
       <div className="marca">
-        <img src="./icon.svg" alt="" width={64} height={64} />
-        <h1>Flor da Mata</h1>
-        <p>Registro de campo e painel da fazenda</p>
+        <img src="./logo-piai.png" alt="PIAI – Fazenda Controle Total" width={187} height={230} />
+        <h1 className="sr">PIAI – Fazenda Controle Total</h1>
+        <p>Fazenda Flor da Mata · registro de campo e painel</p>
       </div>
       <form onSubmit={enviar} className="cartao">
         <Rotulo t="E-mail"><input type="email" autoComplete="email" required maxLength={254} value={email} onChange={(e) => setEmail(e.target.value)} /></Rotulo>
