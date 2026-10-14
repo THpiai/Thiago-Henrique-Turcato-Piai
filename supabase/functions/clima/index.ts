@@ -21,11 +21,13 @@ Deno.serve(async (req) => {
 
   const { data: sedes, error } = await db.from('sedes').select('id,nome,latitude,longitude')
   if (error) return Response.json({ erro: error.message }, { status: 500 })
-  const { count } = await db.from('chuva').select('id', { count: 'exact', head: true }).eq('fonte', 'Estimativa automática')
-  const diasPassados = count ? 7 : 92 // primeira vez busca o histórico de 3 meses
   const resumo: Record<string, unknown> = {}
 
   for (const s of sedes ?? []) {
+    // Primeira vez de cada sede busca o histórico de 3 meses; depois, só a última semana.
+    const { count } = await db.from('chuva').select('id', { count: 'exact', head: true })
+      .eq('fonte', 'Estimativa automática').eq('sede_id', s.id)
+    const diasPassados = count ? 7 : 92
     const u = new URL('https://api.open-meteo.com/v1/forecast')
     u.search = new URLSearchParams({
       latitude: String(s.latitude), longitude: String(s.longitude), timezone: 'America/Sao_Paulo',

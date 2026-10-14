@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chuvaPeriodo, cicloAtual, resumoTalhao, type Dados } from '../src/lib/painel'
+import { chuvaPeriodo, chuvaPrevista, cicloAtual, resumoTalhao, type Dados } from '../src/lib/painel'
 import type { Chuva, Ciclo, Talhao } from '../src/lib/tipos'
 
 const dia = (n: number) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10)
@@ -61,6 +61,24 @@ describe('sedes e clima', () => {
     ] as Chuva[]
     expect(chuvaPeriodo('t9', ch, 7, 'ca')).toBe(30)
     expect(chuvaPeriodo('t9', ch, 7, 'fm')).toBe(10)
+  })
+  it('pluviômetro da sede vale para os talhões dela e vence a estimativa', () => {
+    const ch = [
+      { id: '1', data: dia(1), talhao_id: null, sede_id: 'ca', milimetros: 30, fonte: 'Estimativa automática' },
+      { id: '2', data: dia(1), talhao_id: null, sede_id: 'ca', milimetros: 42, fonte: 'Pluviômetro' },
+      { id: '3', data: dia(2), talhao_id: null, sede_id: 'ca', milimetros: 5, fonte: 'Estimativa automática' },
+      { id: '4', data: dia(2), talhao_id: 't1', milimetros: 8, fonte: 'Pluviômetro' },
+      { id: '5', data: dia(1), talhao_id: null, sede_id: 'fm', milimetros: 12, fonte: 'Estimativa automática' },
+    ] as Chuva[]
+    expect(chuvaPeriodo('t9', ch, 7, 'ca')).toBe(47)  // 42 da sede + 5 estimado
+    expect(chuvaPeriodo('t1', ch, 7, 'ca')).toBe(50)  // 42 da sede + 8 do próprio talhão
+    expect(chuvaPeriodo(null, ch, 7, 'ca')).toBe(47)  // cartão da sede
+    expect(chuvaPeriodo('t9', ch, 7, 'fm')).toBe(12)  // leitura da Carlim não vai para a Flor da Mata
+  })
+  it('soma a chuva prevista das próximas horas na sede', () => {
+    const base = new Date('2026-10-08T09:00:00Z')
+    const h = (i: number, mm: number, sede = 'ca') => ({ sede_id: sede, hora: new Date(base.getTime() + i * 3600e3).toISOString(), chuva_mm: mm })
+    expect(chuvaPrevista([h(-1, 9), h(0, 1.5), h(10, 2), h(80, 7), h(3, 4, 'fm')], 'ca', base, 72)).toBe(3.5)
   })
   it('junta horas boas seguidas numa janela de aplicação', () => {
     const base = new Date('2026-10-08T09:00:00Z').getTime()

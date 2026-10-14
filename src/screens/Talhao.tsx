@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDados, useLive, useSessao } from '../lib/hooks'
-import { resumoTalhao, type Resumo } from '../lib/painel'
+import { resumoTalhao, sedeDoTalhao, type Resumo } from '../lib/painel'
 import type { Operacao } from '../lib/tipos'
 import { grupoSafra, type estadioDaSafra } from '../lib/safra'
 import { gravidade, nomeProblema, type Problema } from '../lib/problemas'
@@ -26,6 +26,7 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
   const r = useMemo(() => (d && t ? resumoTalhao(t, d) : null), [d, t])
   if (!d || !t || !r) return <p className="vazio">Carregando…</p>
   const nomeInsumo = (i: string) => insumos.find((x) => x.id === i)?.nome ?? 'insumo'
+  const sedeId = sedeDoTalhao(t, d.sedes)?.id
 
   const eventos: Evento[] = [
     ...d.operacoes.filter((o) => o.talhao_id === id).map((o) => ({
@@ -38,8 +39,9 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
       titulo: `${c.tipo}${c.alvo ? ` · ${c.alvo}` : ''} — ${gravidade(c).toLowerCase()}${c.status === 'Resolvida' ? ', resolvido' : ''}`,
       detalhe: [c.quem_viu && c.quem_viu !== 'Equipe' ? `visto pelo ${c.quem_viu.toLowerCase()}` : '', c.nivel_encontrado != null ? `${fmtN(c.nivel_encontrado, 2)} ${c.unidade_nivel ?? ''}` : '', c.descricao].filter(Boolean).join(' · ') || undefined,
     })),
-    ...d.chuva.filter((c) => c.talhao_id === id).map((c) => ({
-      id: c.id, quando: c.data, tipo: 'chuva' as const, tabela: 'chuva' as const, autor: c.autor_id, pendente: c._pendente === 1, titulo: `Chuva ${fmtN(Number(c.milimetros), 1)} mm`,
+    ...d.chuva.filter((c) => c.talhao_id === id || (!c.talhao_id && c.fonte === 'Pluviômetro' && !!c.sede_id && c.sede_id === sedeId)).map((c) => ({
+      id: c.id, quando: c.data, tipo: 'chuva' as const, tabela: 'chuva' as const, autor: c.autor_id, pendente: c._pendente === 1,
+      titulo: `Chuva ${fmtN(Number(c.milimetros), 1)} mm${c.talhao_id ? '' : ` · pluviômetro da sede ${d.sedes.find((s) => s.id === c.sede_id)?.nome ?? ''}`}`,
     })),
   ].sort((a, b) => b.quando.localeCompare(a.quando)).slice(0, 60)
 

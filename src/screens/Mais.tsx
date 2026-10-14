@@ -301,13 +301,14 @@ export function Lixeira({ voltar }: { voltar: () => void }) {
     const talhoes = await db.talhoes.toArray()
     const nomeT = (id?: string | null) => talhoes.find((t) => t.id === id)?.nome ?? ''
     const insumos = await db.insumos.toArray()
+    const sedes = await db.sedes.toArray()
     const meu = (a?: string | null) => gestor || a === eu.id
     const fora = <T extends { excluido_em?: string | null }>(l: T[]) => l.filter((x) => !!x.excluido_em)
     return [
       ...(gestor ? talhoes.filter((t) => t.ativo === false).map((t) => ({ id: t.id, tabela: 'talhoes' as const, tipo: 'Talhão arquivado', titulo: t.nome, detalhe: `${fmtN(Number(t.area_ha), 2)} ha`, quando: '' })) : []),
       ...fora(await db.operacoes.toArray()).filter((o) => meu(o.autor_id)).map((o) => ({ id: o.id, tabela: 'operacoes' as const, tipo: 'Operação', titulo: `${o.tipo}${o.alvo ? ' · ' + o.alvo : ''}`, detalhe: `${nomeT(o.talhao_id)} · ${fmtDataHora(o.data_hora)}`, quando: o.excluido_em! })),
       ...fora(await db.campo.toArray()).filter((c) => meu(c.autor_id)).map((c) => ({ id: c.id, tabela: 'campo' as const, tipo: 'Problema', titulo: `${c.tipo}${c.alvo ? ' · ' + c.alvo : ''}`, detalhe: `${nomeT(c.talhao_id)} · ${fmtDataHora(c.data_hora)}`, quando: c.excluido_em! })),
-      ...fora(await db.chuva.toArray()).filter((c) => meu(c.autor_id)).map((c) => ({ id: c.id, tabela: 'chuva' as const, tipo: 'Chuva', titulo: `${fmtN(Number(c.milimetros), 1)} mm`, detalhe: `${nomeT(c.talhao_id)} · ${fmtData(c.data)}`, quando: c.excluido_em! })),
+      ...fora(await db.chuva.toArray()).filter((c) => meu(c.autor_id)).map((c) => ({ id: c.id, tabela: 'chuva' as const, tipo: 'Chuva', titulo: `${fmtN(Number(c.milimetros), 1)} mm`, detalhe: `${c.talhao_id ? nomeT(c.talhao_id) : `Sede ${sedes.find((s) => s.id === c.sede_id)?.nome ?? ''}`} · ${fmtData(c.data)}`, quando: c.excluido_em! })),
       ...fora(await db.estoque_mov.toArray()).filter((m) => meu(m.autor_id)).map((m) => ({ id: m.id, tabela: 'estoque_mov' as const, tipo: 'Estoque', titulo: `${m.movimento} · ${insumos.find((i) => i.id === m.insumo_id)?.nome ?? ''}`, detalhe: `${fmtN(Number(m.quantidade), 2)} · ${fmtData(m.data)}`, quando: m.excluido_em! })),
       ...(gestor ? fora(await db.ciclos.toArray()).map((c) => ({ id: c.id, tabela: 'ciclos' as const, tipo: 'Safra', titulo: `${c.safra} · ${c.cultura}`, detalhe: nomeT(c.talhao_id), quando: c.excluido_em! })) : []),
     ].sort((a, b) => b.quando.localeCompare(a.quando))

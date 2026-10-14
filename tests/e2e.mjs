@@ -189,6 +189,16 @@ try {
   ok((await pagina.evaluate(() => new Promise((ok) => { const r = indexedDB.open('flor-da-mata'); r.onsuccess = () => { const t = r.result.transaction('fila').objectStore('fila').count(); t.onsuccess = () => ok(t.result) } }))) === 2,
     'chuva de 900 mm recusada antes de entrar na fila')
 
+  // Chuva lida na sede Carlim: um registro da sede, que vale para os talhões mais próximos dela.
+  await espera('Pluviômetro das sedes')
+  await pagina.getByLabel('Chuva na sede Carlim (mm)').fill('25')
+  await foto('2a-chuva-por-sede')
+  await pagina.getByRole('button', { name: 'Salvar leituras' }).click()
+  await espera('Chuva salva.')
+  const naFila = await pagina.evaluate(() => new Promise((ok) => { const r = indexedDB.open('flor-da-mata'); r.onsuccess = () => { const t = r.result.transaction('chuva').objectStore('chuva').getAll(); t.onsuccess = () => ok(t.result) } }))
+  ok(naFila.some((c) => c.sede_id === 's2' && c.talhao_id == null && Number(c.milimetros) === 25 && c.fonte === 'Pluviômetro'), 'chuva da sede Carlim gravada com a sede escolhida')
+  await espera('Olá, Thiago')
+
   // Problema registrado rápido, ainda sem sinal: tipo, nome, gravidade, quem viu e foto.
   const t0 = Date.now()
   await pagina.getByRole('button', { name: /Registrar/ }).click()
@@ -202,13 +212,13 @@ try {
   await pagina.getByAltText('Foto do problema').waitFor()
   await foto('2b-problema-sem-sinal')
   await pagina.getByRole('button', { name: 'Salvar problema' }).click()
-  await espera('2 guardado(s) no celular')
+  await espera('3 guardado(s) no celular')
   ok(Date.now() - t0 < 60000, `problema registrado sem sinal em ${Math.round((Date.now() - t0) / 1000)} s`)
   await espera('Olá, Thiago')
 
   // Fecha e reabre o app sem sinal: tudo continua lá.
   await pagina.reload()
-  await espera('2 guardado(s) no celular')
+  await espera('3 guardado(s) no celular')
   ok(true, 'reabriu sem sinal com os registros guardados')
   await pagina.getByRole('button', { name: /T01 Sede/ }).click()
   await espera('Pulverização · Ferrugem-asiática')
@@ -224,6 +234,8 @@ try {
   const p = recebidos.find((r) => r.tabela === 'operacao_produtos').linhas[0]
   ok(Math.abs(p.quantidade_total - 49.5) < 1e-9 && p.insumo_id === 'i1', 'produto chegou com a quantidade certa')
   ok(!JSON.stringify(recebidos).includes('_pendente'), 'nenhum campo interno vazou para o servidor')
+  const chuvaSede = recebidos.filter((r) => r.tabela === 'chuva').flatMap((r) => r.linhas).find((c) => c.sede_id === 's2')
+  ok(chuvaSede && chuvaSede.talhao_id == null && chuvaSede.fonte === 'Pluviômetro', 'chuva da sede Carlim subiu para o servidor')
   const prob = recebidos.find((r) => r.tabela === 'campo').linhas[0]
   ok(prob.gravidade === 'Alta' && prob.quem_viu === 'Vendedor' && prob.latitude && prob.foto_path === `campo/${prob.id}.jpg`, 'problema chegou com gravidade, quem viu, ponto e foto')
   for (let i = 0; i < 50 && !fotos.length; i++) await pagina.waitForTimeout(200)

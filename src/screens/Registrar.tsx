@@ -4,7 +4,7 @@ export function Registrar({ ir }: { ir: (tela: string) => void }) {
   const itens = [
     { tela: 'operacao', icone: 'trator', t: 'Operação', d: 'Plantio, pulverização, adubação, colheita…' },
     { tela: 'campo', icone: 'lupa', t: 'Problema', d: 'Praga, daninha, doença, falha. Com foto e ponto no mapa' },
-    { tela: 'chuva', icone: 'chuva', t: 'Chuva', d: 'Leitura dos pluviômetros' },
+    { tela: 'chuva', icone: 'chuva', t: 'Chuva', d: 'Pluviômetro das sedes e dos talhões' },
     { tela: 'estoque', icone: 'estoque', t: 'Estoque', d: 'Entrada de nota, saída avulsa, inventário' },
   ]
   return (

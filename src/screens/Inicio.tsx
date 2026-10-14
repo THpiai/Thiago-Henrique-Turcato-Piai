@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useDados, useLive, useSessao } from '../lib/hooks'
 import { db } from '../lib/db'
-import { abaixoDoMinimo, chuvaPeriodo, climaNaHora, janelasAplicacao, resumoTalhao, type Dados, type Resumo } from '../lib/painel'
+import { abaixoDoMinimo, chuvaPeriodo, chuvaPrevista, climaNaHora, janelasAplicacao, resumoTalhao, type Dados, type Resumo } from '../lib/painel'
 import { COR_CULTURA } from '../lib/opcoes'
 import { fmtData, fmtDataHora, fmtN } from '../lib/formato'
 import { Aviso } from '../components/ui'
@@ -140,6 +140,9 @@ function ClimaSedes({ d }: { d: Dados }) {
               <div className="topo"><b>{s.nome}</b>{c && <span className="mudo">agora {fmtN(c.temperatura_c, 0)} °C · {fmtN(c.umidade_pct, 0)}% · vento {fmtN(c.vento_kmh, 0)} km/h</span>}</div>
               <div className="com-icone"><Icone n="chuva" t={16} />{fmtN(chuvaPeriodo(null, d.chuva, 7, s.id), 0)} mm em 7 dias · {fmtN(chuvaPeriodo(null, d.chuva, 30, s.id), 0)} mm em 30 dias</div>
               {clima.some((x) => x.sede_id === s.id) && (
+                <div className="com-icone mudo">Previsão: {fmtN(chuvaPrevista(clima, s.id, agora, 72), 0)} mm nas próximas 72 h</div>
+              )}
+              {clima.some((x) => x.sede_id === s.id) && (
                 <small>
                   Janela para pulverizar (36 h): {janelas.length
                     ? janelas.slice(0, 3).map((j) => `${diaSemana(j.inicio)} ${hora(j.inicio)}–${hora(new Date(new Date(j.fim).getTime() + 3600e3).toISOString())}`).join(' · ')
@@ -150,7 +153,7 @@ function ClimaSedes({ d }: { d: Dados }) {
           )
         })}
       </div>
-      <small className="mudo">Estimativa Open-Meteo. Leitura de pluviômetro do talhão substitui a estimativa no painel.{clima[0] ? ` Atualizado até ${fmtDataHora(clima.reduce((m, x) => (x.hora > m ? x.hora : m), clima[0].hora))} (previsão).` : ''}</small>
+      <small className="mudo">Estimativa Open-Meteo. Leitura de pluviômetro (da sede ou do talhão) substitui a estimativa no painel.{clima[0] ? ` Atualizado até ${fmtDataHora(clima.reduce((m, x) => (x.hora > m ? x.hora : m), clima[0].hora))} (previsão).` : ''}</small>
     </section>
   )
 }
