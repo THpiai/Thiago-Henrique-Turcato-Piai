@@ -37,19 +37,42 @@ export function cicloAtual(talhaoId: string, ciclos: Ciclo[]): Ciclo | undefined
     ordem[a.status] - ordem[b.status] || (b.data_plantio ?? '').localeCompare(a.data_plantio ?? ''))[0]
 }
 
-/** Chuva do talhão: pluviômetro dele quando há leitura no dia; senão a estimativa da sede mais próxima. */
+/**
+ * Chuva do talhão, por dia, na ordem de confiança: pluviômetro do próprio talhão; senão o
+ * pluviômetro da sede mais próxima (vale para todos os talhões dela); senão a estimativa da sede.
+ * Com talhaoId nulo, é a chuva da sede (pluviômetro da sede, senão estimativa).
+ */
 export function chuvaPeriodo(talhaoId: string | null, chuva: Chuva[], dias: number, sedeId?: string): number {
-  const porDia = new Map<string, number>()
+  const doTalhao = new Map<string, number>()
+  const daSede = new Map<string, number>()
   const estimada = new Map<string, number>()
+  const soma = (m: Map<string, number>, dia: string, mm: number) => m.set(dia, (m.get(dia) ?? 0) + mm)
   for (const c of chuva) {
     const d = diasDesde(c.data)
     if (d == null || d < 0 || d >= dias) continue
-    if (c.talhao_id === talhaoId && c.fonte === 'Pluviômetro') porDia.set(c.data, (porDia.get(c.data) ?? 0) + Number(c.milimetros))
-    else if (!c.talhao_id && (!c.sede_id || !sedeId || c.sede_id === sedeId)) estimada.set(c.data, Number(c.milimetros))
+    const mm = Number(c.milimetros)
+    const mesmaSede = !c.sede_id || !sedeId || c.sede_id === sedeId
+    if (c.fonte === 'Pluviômetro') {
+      if (talhaoId && c.talhao_id === talhaoId) soma(doTalhao, c.data, mm)
+      else if (!c.talhao_id && c.sede_id && mesmaSede) soma(daSede, c.data, mm)
+    } else if (!c.talhao_id && mesmaSede) estimada.set(c.data, mm)
   }
   let total = 0
-  for (const [dia, mm] of estimada) if (!porDia.has(dia)) total += mm
-  for (const mm of porDia.values()) total += mm
+  for (const mm of doTalhao.values()) total += mm
+  for (const [dia, mm] of daSede) if (!doTalhao.has(dia)) total += mm
+  for (const [dia, mm] of estimada) if (!doTalhao.has(dia) && !daSede.has(dia)) total += mm
+  return Math.round(total * 10) / 10
+}
+
+/** Chuva prevista (mm) nas próximas horas na sede, pelo clima horário. */
+export function chuvaPrevista(clima: ClimaHora[], sedeId: string, desde = new Date(), horas = 72): number {
+  const ini = desde.getTime(), fim = ini + horas * 3600e3
+  let total = 0
+  for (const c of clima) {
+    if (c.sede_id !== sedeId) continue
+    const t = new Date(c.hora).getTime()
+    if (t >= ini && t < fim) total += Number(c.chuva_mm) || 0
+  }
   return Math.round(total * 10) / 10
 }
 
