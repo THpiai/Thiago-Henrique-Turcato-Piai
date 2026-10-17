@@ -49,8 +49,30 @@ export async function salvarOperacao(op: Operacao, produtos: OperacaoProduto[], 
   if (produtos.length) await salvar('operacao_produtos', produtos as Linha[])
 }
 
+/** Várias operações de uma vez (uma por talhão): tudo validado antes, depois grava e sobe em ordem. */
+export async function salvarOperacoes(ops: Operacao[], produtos: OperacaoProduto[], novasSafras: Ciclo[]) {
+  checar('operacoes', ops); checar('operacao_produtos', produtos); checar('ciclos', novasSafras)
+  for (const c of novasSafras) await db.ciclos.put({ ...c, _auto: 1 } as Ciclo)
+  await salvar('operacoes', ops as Linha[])
+  if (produtos.length) await salvar('operacao_produtos', produtos as Linha[])
+}
+
+/** Fecha a operação aberta. Se a área mudou, os insumos dela são recalculados (o banco faz o mesmo). */
+export async function fecharOperacao(id: string, campos: { data_fim: string; area_ha?: number | null; producao?: number | null; unidade_producao?: 'sc' | 't' | null }) {
+  const op = await db.operacoes.get(id)
+  if (!op) return
+  checar('operacoes', [{ ...op, ...campos, em_andamento: false }])
+  await alterar('operacoes', [id], { ...campos, em_andamento: false })
+  if (campos.area_ha != null && campos.area_ha !== op.area_ha) {
+    const prods = await db.operacao_produtos.where('operacao_id').equals(id).toArray()
+    for (const p of prods) await db.operacao_produtos.update(p.id, { quantidade_total: p.dose_ha * campos.area_ha })
+  }
+}
+
 export type Estado = { pendentes: number; comErro: number; enviando: boolean; ultimaSync?: string; online: boolean }
 let enviando = false
+/** Algo foi salvo enquanto a fila subia: envia de novo assim que terminar. */
+let pedidoNovo = false
 const ouvintes = new Set<() => void>()
 export const ouvirSync = (f: () => void) => (ouvintes.add(f), () => void ouvintes.delete(f))
 const avisar = () => ouvintes.forEach((f) => f())
@@ -73,8 +95,9 @@ const falhaDeRede = (status: number, msg = '') =>
 
 /** Envia a fila em ordem. Para no primeiro problema de rede; erros de dados ficam marcados para revisão. */
 export async function enviar(cli: Cliente): Promise<'ok' | 'sem-rede' | 'com-erros'> {
-  if (enviando) return 'ok'
+  if (enviando) { pedidoNovo = true; return 'ok' }
   enviando = true
+  pedidoNovo = false
   avisar()
   let resultado: 'ok' | 'sem-rede' | 'com-erros' = 'ok'
   try {
@@ -115,6 +138,7 @@ export async function enviar(cli: Cliente): Promise<'ok' | 'sem-rede' | 'com-err
     enviando = false
     avisar()
   }
+  if (pedidoNovo && resultado !== 'sem-rede') return enviar(cli)
   return resultado
 }
 

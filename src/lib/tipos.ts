@@ -31,7 +31,17 @@ export type Operacao = Local & Apagavel & {
   receituario?: string | null; latitude?: number | null; longitude?: number | null; observacao?: string | null
   cultura?: string | null; cultivar?: string | null; populacao_plantas_ha?: number | null
   producao?: number | null; unidade_producao?: 'sc' | 't' | null
+  /** Começou e ainda não terminou (data_hora é o início). */
+  em_andamento?: boolean
+  /** Quando terminou; vazio numa operação concluída = terminou no mesmo dia. */
+  data_fim?: string | null
+  /** Operações salvas juntas, uma por talhão. */
+  lote_id?: string | null
+  /** Outras variedades que entraram no plantio (sobra de bag). */
+  sobras?: Sobra[] | null
 }
+/** Variedade que entrou numa parte pequena do talhão; as medidas são opcionais. */
+export type Sobra = { cultivar: string; sementes?: string | null; area_ha?: number | null }
 export type OperacaoProduto = Local & {
   id: string; operacao_id: string; insumo_id: string; dose_ha: number; unidade: string; quantidade_total?: number | null
 }

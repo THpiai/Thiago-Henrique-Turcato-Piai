@@ -69,12 +69,35 @@ export function problema(tabela: TabelaSync, linha: Record<string, unknown>, ago
     const v = linha[k]
     if (typeof v === 'string' && v.length > max) return `Texto muito longo (máximo de ${max} caracteres).`
   }
+  if (tabela === 'operacoes') {
+    const p = fimESobras(linha, agora)
+    if (p) return p
+  }
   if (r.data && linha[r.data] != null) {
     const s = String(linha[r.data])
     const t = new Date(s.length === 10 ? s + 'T12:00:00' : s).getTime()
     if (!Number.isFinite(t)) return 'Data inválida.'
     if (t < Date.UTC(2015, 0, 1)) return 'Data muito antiga. Confira o dia.'
     if (t > agora + 2 * 864e5) return 'Data no futuro. Confira o dia e a hora.'
+  }
+  return null
+}
+
+/** Término depois do início e sem futuro; sobras de variedade curtas (mesmas regras da migração 0011). */
+function fimESobras(l: Record<string, unknown>, agora: number): string | null {
+  if (l.data_fim != null) {
+    const fim = new Date(String(l.data_fim)).getTime()
+    if (!Number.isFinite(fim)) return 'Data de término inválida.'
+    if (fim > agora + 2 * 864e5) return 'Término no futuro. Confira o dia.'
+    if (l.data_hora != null && fim < new Date(String(l.data_hora)).getTime()) return 'O término ficou antes do início. Confira as datas.'
+  }
+  if (l.sobras != null) {
+    if (!Array.isArray(l.sobras) || l.sobras.length > 5) return 'No máximo 5 variedades extras.'
+    if (JSON.stringify(l.sobras).length > 1000) return 'Texto muito longo nas variedades extras.'
+    for (const x of l.sobras as Record<string, unknown>[]) {
+      if (typeof x?.cultivar !== 'string' || !x.cultivar.trim()) return 'Preencha: nome da outra variedade.'
+      if (x.area_ha != null && (typeof x.area_ha !== 'number' || x.area_ha <= 0 || x.area_ha > 5000)) return 'Área da outra variedade: use um valor entre 0,01 e 5.000.'
+    }
   }
   return null
 }

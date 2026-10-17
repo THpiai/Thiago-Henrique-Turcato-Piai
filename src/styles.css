@@ -474,3 +474,60 @@ body.sem-rolagem { overflow: hidden; }
   .painel-fundo { justify-content: flex-end; align-items: stretch; }
   .painel-filtro { width: 420px; max-height: none; height: 100dvh; border-radius: 20px 0 0 20px; animation: desliza 0.2s ease-out; }
 }
+
+/* ── Operação: vários talhões, mapa dinâmico, em andamento, ficha por safra ── */
+.tela-operacao { display: flex; flex-direction: column; gap: 0.8rem; }
+.form-operacao { min-width: 0; }
+.mapa-operacao { background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); box-shadow: var(--sombra); overflow: hidden; }
+.mapa-operacao-topo { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.6rem 0.9rem; background: none; border: 0; text-align: left; min-height: 48px; }
+.mapa-operacao-topo .mudo { flex: 1; font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mapa-operacao-topo .seta-abre { color: var(--mudo); }
+.mapa-op { height: 38vh; min-height: 220px; background: #1d2a1f; }
+.mapa-operacao > small { padding: 0.4rem 0.9rem 0.6rem; }
+.legenda-mapa { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; padding: 0.55rem 0.9rem; font-size: 0.8rem; color: var(--mudo); }
+.legenda-mapa span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.legenda-mapa i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legenda-mapa i.marcado { background: transparent; border: 3px solid var(--tinta); }
+@media (min-width: 1024px) {
+  .tela-operacao { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 44%); gap: 0 1.8rem; align-items: start; }
+  .tela-operacao .mapa-operacao { grid-column: 2; grid-row: 1; position: sticky; top: 1.5rem; }
+  .tela-operacao .form-operacao { grid-column: 1; grid-row: 1; }
+  .mapa-op { height: calc(100dvh - 9rem); }
+}
+
+.seletor-talhoes .rotulo small { display: inline; margin-left: 0.4rem; font-weight: 500; }
+.seletor-talhoes .busca { margin-top: 0.3rem; }
+.atalhos-linha { display: flex; gap: 0.4rem; overflow-x: auto; padding: 0.55rem 0 0.1rem; scrollbar-width: thin; }
+.atalhos-linha .chip { flex: none; min-height: 38px; padding: 0.35rem 0.8rem; font-size: 0.86rem; }
+.atalhos-linha .chip .conta { font-size: 0.75rem; opacity: 0.7; margin-left: 0.15rem; }
+.lista-marcar.compacta { max-height: 15rem; overflow-y: auto; border: 1px solid var(--linha); border-radius: var(--raio-p); background: var(--papel); padding: 0 0.6rem; }
+.lista-marcar.compacta label { grid-template-columns: auto auto 1fr; min-height: 44px; }
+
+.por-talhao .linha-talhao-op, .fechar-op .linha-talhao-op { display: grid; grid-template-columns: minmax(0, 1fr) 7.5rem; gap: 0.5rem; align-items: center; padding: 0.45rem 0; border-top: 1px solid var(--linha); }
+.linha-talhao-op:has(.campo-mini + .campo-mini) { grid-template-columns: minmax(0, 1fr) 6.5rem 7.5rem; }
+.linha-talhao-op:first-of-type { border-top: 0; }
+.linha-talhao-op .nome small { font-size: 0.8rem; }
+.campo-mini { display: flex; flex-direction: column; gap: 0.15rem; }
+.campo-mini span { font-size: 0.72rem; color: var(--mudo); }
+.campo-mini input { min-height: 42px; }
+.por-talhao > .dica { margin: 0.2rem 0 0.7rem; }
+
+.sobra { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.8fr) auto; gap: 0.45rem; align-items: center; margin-bottom: 0.7rem; }
+.sobra:has(select) { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.8fr) auto; }
+.sobra .rotulo { grid-column: 1 / -1; font-size: 0.8rem; color: var(--mudo); }
+.sobra .mini { min-height: 44px; min-width: 44px; }
+@media (max-width: 560px) { .sobra, .sobra:has(select) { grid-template-columns: 1fr 1fr; } .sobra .mini { justify-self: end; } }
+
+.em-andamento li { padding-right: 0.9rem; }
+.em-andamento .cab-andamento { display: flex; gap: 0.6rem; align-items: flex-start; justify-content: space-between; }
+.em-andamento .cab-andamento .mini { position: static; flex: none; min-height: 40px; }
+.em-andamento li.alerta { border-left-color: var(--aviso); }
+.fechar-op { margin-top: 0.7rem; padding-top: 0.6rem; border-top: 1px dashed var(--linha-forte); }
+
+.ficha-safras { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.ficha-safras > li { background: var(--papel-2); border: 1px solid var(--linha); border-radius: var(--raio-p); padding: 0.75rem 0.9rem; }
+.ficha-safras > li.clicavel { cursor: pointer; }
+.ficha-safras .cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.6rem; margin-bottom: 0.45rem; }
+.ficha-safras .cab .selo { margin-left: auto; }
+.ficha-safras > li > small { margin: -0.2rem 0 0.45rem; }
+.leaflet-interactive.talhao-marcado { filter: drop-shadow(0 0 6px rgb(255 255 255 / 0.7)); }
