@@ -43,15 +43,19 @@ export function cicloAberto(talhaoId: string, ciclos: Ciclo[]): Ciclo | undefine
       (b.data_plantio ?? '').localeCompare(a.data_plantio ?? ''))[0]
 }
 
+const fimDe = (o: Operacao) => o.data_fim ?? o.data_hora
+
 export type CicloVivo = Ciclo & { areaColhida: number; fracaoColhida: number; producaoDasOperacoes: boolean }
 
 /** A safra como resultado das operações: plantio, cultivar, produção e colheita saem dos registros. */
 export function derivarCiclo(c: Ciclo, ops: Operacao[], areaTalhao: number): CicloVivo {
   const doCiclo = ops.filter((o) => o.ciclo_id === c.id && !o.excluido_em).sort((a, b) => a.data_hora.localeCompare(b.data_hora))
   const plantios = doCiclo.filter((o) => o.tipo === 'Plantio')
-  const colheitas = doCiclo.filter((o) => TIPOS_COLHEITA.includes(o.tipo))
+  // Colheita em andamento soma produção, mas só fecha a safra quando termina.
+  const todasColheitas = doCiclo.filter((o) => TIPOS_COLHEITA.includes(o.tipo))
+  const colheitas = todasColheitas.filter((o) => !o.em_andamento)
   const areaColhida = colheitas.reduce((s, o) => s + Number(o.area_ha ?? 0), 0)
-  const comProducao = colheitas.filter((o) => o.producao != null)
+  const comProducao = todasColheitas.filter((o) => o.producao != null)
   const producao = comProducao.length ? comProducao.reduce((s, o) => s + Number(o.producao), 0) : c.producao ?? null
   const colhido = areaTalhao > 0 && areaColhida >= FRACAO_COLHIDO * areaTalhao
   const plantio = plantios[0] ? diaLocal(plantios[0].data_hora) : null
@@ -64,7 +68,7 @@ export function derivarCiclo(c: Ciclo, ops: Operacao[], areaTalhao: number): Cic
     unidade_producao: comProducao.length
       ? (comProducao.find((o) => o.unidade_producao)?.unidade_producao ?? c.unidade_producao ?? (c.cultura === 'Cana-de-açúcar' ? 't' : 'sc'))
       : c.unidade_producao,
-    data_colheita: colhido ? diaLocal(colheitas[colheitas.length - 1].data_hora) : c.data_colheita,
+    data_colheita: colhido ? diaLocal(fimDe(colheitas[colheitas.length - 1])) : c.data_colheita,
     status: colhido ? 'Colhido' : c.status === 'Planejado' && plantio ? 'Em andamento' : c.status,
     areaColhida,
     fracaoColhida: areaTalhao > 0 ? Math.min(1, areaColhida / areaTalhao) : 0,

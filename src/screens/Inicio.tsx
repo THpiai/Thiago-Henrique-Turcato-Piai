@@ -7,6 +7,7 @@ import { fmtData, fmtDataHora, fmtN } from '../lib/formato'
 import { Aviso } from '../components/ui'
 import { Icone } from '../components/Icone'
 import { FiltroTalhoes, useFiltrados } from '../components/FiltroTalhoes'
+import { EmAndamento } from '../components/EmAndamento'
 
 export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; ir: (tela: string) => void }) {
   const d = useDados()
@@ -58,6 +59,7 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
           </section>
         </div>
         <aside>
+          <EmAndamento ops={d.operacoes.filter((o) => resumos.some((r) => r.talhao.id === o.talhao_id))} talhoes={d.talhoes} abrirTalhao={abrirTalhao} />
           {(baixos.length > 0 || pedem.length > 0) && (
             <section>
               <h2>Atenção</h2>

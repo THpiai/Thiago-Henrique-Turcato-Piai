@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDados, useLive, useSessao } from '../lib/hooks'
 import { resumoTalhao, sedeDoTalhao, type Resumo } from '../lib/painel'
-import type { Operacao } from '../lib/tipos'
+import type { Ciclo, Operacao } from '../lib/tipos'
 import { grupoSafra, type estadioDaSafra } from '../lib/safra'
 import { gravidade, nomeProblema, type Problema } from '../lib/problemas'
 import { ESTADIOS_CANA, ESTADIOS_GRAOS } from '../lib/opcoes'
@@ -13,6 +13,8 @@ import { fmtData, fmtDataHora, fmtN } from '../lib/formato'
 import { alterar, apagar, restaurar } from '../lib/sync'
 import type { TabelaSync } from '../lib/db'
 import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
+import { EmAndamento } from '../components/EmAndamento'
+import { duracaoDias, fichaSafra } from '../lib/operacoes'
 
 type Evento = { id: string; quando: string; titulo: string; detalhe?: string; tipo: 'op' | 'campo' | 'chuva'; tabela: TabelaSync; autor?: string | null; pendente?: boolean }
 
@@ -31,8 +33,8 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
   const eventos: Evento[] = [
     ...d.operacoes.filter((o) => o.talhao_id === id).map((o) => ({
       id: o.id, quando: o.data_hora, tipo: 'op' as const, tabela: 'operacoes' as const, autor: o.autor_id, pendente: o._pendente === 1,
-      titulo: o.tipo + (o.alvo ? ` · ${o.alvo}` : ''),
-      detalhe: d.produtos.filter((p) => p.operacao_id === o.id).map((p) => `${nomeInsumo(p.insumo_id)} ${fmtN(p.dose_ha, 2)} ${p.unidade}/ha`).join(' + ') || o.observacao || undefined,
+      titulo: o.tipo + (o.alvo ? ` · ${o.alvo}` : '') + (o.em_andamento ? ' · em andamento' : o.data_fim && duracaoDias(o) > 1 ? ` · ${duracaoDias(o)} dias (até ${fmtData(o.data_fim)})` : ''),
+      detalhe: [o.sobras?.length ? `também entrou: ${o.sobras.map((x) => x.cultivar).join(', ')}` : ''].filter(Boolean).concat(d.produtos.filter((p) => p.operacao_id === o.id).map((p) => `${nomeInsumo(p.insumo_id)} ${fmtN(p.dose_ha, 2)} ${p.unidade}/ha`).join(' + ') || o.observacao || '').filter(Boolean).join(' · ') || undefined,
     })),
     ...d.campo.filter((c) => c.talhao_id === id).map((c) => ({
       id: c.id, quando: c.data_hora, tipo: 'campo' as const, tabela: 'campo' as const, autor: c.autor_id, pendente: c._pendente === 1,
@@ -92,23 +94,9 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
 
       {r.problemas.length > 0 && <Problemas ps={r.problemas} />}
 
-      {ciclos.length > 1 && (
-        <section className="cartao">
-          <h2>Histórico de safras</h2>
-          <table className="tabela">
-            <thead><tr><th>Safra</th><th>Cultura</th><th>Produção/ha</th><th>Meta</th></tr></thead>
-            <tbody>
-              {ciclos.map((c) => (
-                <tr key={c.id} onClick={() => gestor && editarCiclo(id, c.id)}>
-                  <td>{c.safra}</td><td>{c.cultura}</td>
-                  <td className="num">{c.producao != null ? `${fmtN(c.producao / Number(t.area_ha), 1)} ${c.unidade_producao}` : '–'}</td>
-                  <td className="num">{fmtN(c.meta_por_ha, 1)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
+      <EmAndamento ops={d.operacoes.filter((o) => o.talhao_id === id)} talhoes={d.talhoes} />
+
+      {ciclos.length > 0 && <FichaTalhao ciclos={ciclos} ops={d.operacoes} area={Number(t.area_ha)} abrir={gestor ? (c) => editarCiclo(id, c) : undefined} />}
 
       <section>
         <h2>Linha do tempo</h2>
@@ -139,6 +127,36 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
         </section>
       )}
     </div>
+  )
+}
+
+/** Ficha do talhão por safra: variedade (e sobras), plantio → colheita, dias de ciclo real e produtividade. */
+function FichaTalhao({ ciclos, ops, area, abrir }: { ciclos: Ciclo[]; ops: Operacao[]; area: number; abrir?: (cicloId: string) => void }) {
+  const fichas = ciclos.map((c) => fichaSafra(c, ops))
+  const periodo = (e: { inicio: string; fim: string; dias: number; aberta: boolean } | null) =>
+    !e ? '–' : `${fmtData(e.inicio)}${e.dias > 1 || e.aberta ? ` a ${e.aberta ? 'hoje' : fmtData(e.fim)}` : ''} · ${e.dias} dia${e.dias > 1 ? 's' : ''}${e.aberta ? ' (em andamento)' : ''}`
+  return (
+    <section className="cartao">
+      <h2>Ficha do talhão por safra</h2>
+      <ol className="ficha-safras">
+        {fichas.map((f) => (
+          <li key={f.ciclo.id} onClick={abrir ? () => abrir(f.ciclo.id) : undefined} className={abrir ? 'clicavel' : ''}>
+            <div className="cab">
+              <b>{grupoSafra(f.ciclo)}</b>
+              <span className="mudo">{f.ciclo.cultura}{f.ciclo.cultivar ? ` · ${f.ciclo.cultivar}` : ''}</span>
+              <span className="selo">{f.ciclo.status === 'Colhido' ? 'Colhida' : f.ciclo.status}</span>
+            </div>
+            {f.sobras.length > 0 && <small>Com sobra de: {f.sobras.join('; ')}</small>}
+            <dl className="ficha">
+              <dt>Plantio</dt><dd>{f.plantio ? periodo(f.plantio) : fmtData(f.ciclo.data_plantio)}</dd>
+              <dt>Colheita</dt><dd>{f.colheita ? periodo(f.colheita) : f.ciclo.data_colheita ? fmtData(f.ciclo.data_colheita) : '–'}</dd>
+              <dt>Ciclo real</dt><dd>{f.diasCiclo != null ? <><b>{f.diasCiclo} dias</b>{f.cicloCompleto ? ' do plantio à colheita' : ' até hoje'}{f.ciclo.ciclo_cultivar_dias ? ` (cultivar: ${f.ciclo.ciclo_cultivar_dias})` : ''}</> : '–'}</dd>
+              <dt>Produtividade</dt><dd>{f.ciclo.producao != null && area > 0 ? <><b>{fmtN(f.ciclo.producao / area, 1)} {f.ciclo.unidade_producao}/ha</b>{f.ciclo.meta_por_ha ? ` · meta ${fmtN(f.ciclo.meta_por_ha, 1)}` : ''}</> : '–'}</dd>
+            </dl>
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }
 

@@ -1,30 +1,45 @@
-import { useState, type FormEvent } from 'react'
+import { useCallback, useMemo, useState, type FormEvent } from 'react'
 import { db } from '../lib/db'
-import { useLive, useSessao, useGps } from '../lib/hooks'
+import { useDados, useLive, useSessao, useTalhaoGps } from '../lib/hooks'
 import { CULTURAS, TIPOS_OPERACAO } from '../lib/opcoes'
 import { agoraLocal, fmtN, num, uuid } from '../lib/formato'
-import { climaNaHora, sedeDoTalhao } from '../lib/painel'
+import { climaNaHora, resumoTalhao, sedeDoTalhao } from '../lib/painel'
 import { cicloAberto, grupoSafra, nomeSafra, diaLocal, TIPOS_COLHEITA } from '../lib/safra'
+import { situacaoNoMapa } from '../lib/operacoes'
+import { naSelecao, useSelecao } from '../lib/filtro'
 import { doseMercado, referenciaCultura, referenciaInsumo } from '../lib/mercado'
-import { salvarOperacao } from '../lib/sync'
-import { Aviso, Escolha, Rotulo, SeletorTalhao } from '../components/ui'
-import type { Ciclo, OperacaoProduto } from '../lib/tipos'
+import { salvarOperacoes } from '../lib/sync'
+import { Aviso, Escolha, Rotulo } from '../components/ui'
+import { SeletorTalhoes } from '../components/SeletorTalhoes'
+import { MapaOperacao } from '../components/MapaOperacao'
+import type { Ciclo, Operacao, OperacaoProduto, Sobra } from '../lib/tipos'
 
 type LinhaProduto = { id: string; insumo_id: string; dose: string }
+type LinhaSobra = { id: string; talhao_id: string; cultivar: string; sementes: string; area: string }
 const USA_PRODUTO = ['Plantio', 'Pulverização', 'Adubação', 'Calagem e gessagem']
+const SITUACOES = ['Terminou', 'Ainda em andamento'] as const
 
 export function FormOperacao({ pronto }: { pronto: () => void }) {
   const { eu } = useSessao()
-  const { pos } = useGps()
+  // Um GPS só para o formulário todo: sugere o talhão e grava o ponto da operação.
+  const gps = useTalhaoGps()
+  const { pos } = gps
+  const d = useDados()
   const insumos = useLive(() => db.insumos.orderBy('nome').toArray()) ?? []
-  const talhoes = useLive(() => db.talhoes.toArray()) ?? []
-  const ciclos = (useLive(() => db.ciclos.toArray()) ?? []).filter((c) => !c.excluido_em)
-  const sedes = useLive(() => db.sedes.toArray()) ?? []
   const clima = useLive(() => db.clima.toArray()) ?? []
-  const [talhaoId, setTalhaoId] = useState('')
+  const talhoes = useMemo(() => d?.talhoes ?? [], [d])
+  const ciclos = useMemo(() => (d?.ciclos ?? []).filter((c) => !c.excluido_em), [d])
+  const sedes = d?.sedes ?? []
+  const resumos = useMemo(() => (d ? d.talhoes.map((t) => resumoTalhao(t, d)) : []), [d])
+  const [filtro] = useSelecao()
+  const [marcados, setMarcados] = useState<string[]>([])
   const [tipo, setTipo] = useState<string>('')
+  const [situacao, setSituacao] = useState<(typeof SITUACOES)[number]>('Terminou')
   const [quando, setQuando] = useState(agoraLocal())
-  const [area, setArea] = useState('')
+  const [variosDias, setVariosDias] = useState(false)
+  const [fim, setFim] = useState('')
+  const [areas, setAreas] = useState<Record<string, string>>({})
+  const [producoes, setProducoes] = useState<Record<string, string>>({})
   const [horas, setHoras] = useState('')
   const [alvo, setAlvo] = useState('')
   const [calda, setCalda] = useState('')
@@ -37,13 +52,17 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
   const [cultura, setCultura] = useState('')
   const [cultivar, setCultivar] = useState('')
   const [populacao, setPopulacao] = useState('')
-  const [producao, setProducao] = useState('')
-  const [salvo, setSalvo] = useState(false)
+  const [sobras, setSobras] = useState<LinhaSobra[]>([])
+  const [salvo, setSalvo] = useState(0)
 
-  const talhao = talhoes.find((t) => t.id === talhaoId)
-  const areaNum = num(area) ?? (talhao ? Number(talhao.area_ha) : null)
+  const escolhidos = marcados.map((id) => talhoes.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t)
+  const primeiro = escolhidos[0]
+  const varios = escolhidos.length > 1
+  const aberta = situacao === 'Ainda em andamento'
+  const areaDe = (id: string) => num(areas[id]) ?? Number(talhoes.find((t) => t.id === id)?.area_ha ?? 0)
+  const areaTotal = escolhidos.reduce((s, t) => s + areaDe(t.id), 0)
   const pulv = tipo === 'Pulverização'
-  const sede = talhao ? sedeDoTalhao(talhao, sedes) : undefined
+  const sede = primeiro ? sedeDoTalhao(primeiro, sedes) : undefined
   const estimado = pulv ? climaNaHora(clima, sede?.id, new Date(quando)) : undefined
   const preencher = () => {
     if (!estimado) return
@@ -51,161 +70,239 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
     if (!umid && estimado.umidade_pct != null) setUmid(String(Math.round(estimado.umidade_pct)))
     if (!vento && estimado.vento_kmh != null) setVento(String(estimado.vento_kmh).replace('.', ','))
   }
-  const aberto = talhaoId ? cicloAberto(talhaoId, ciclos) : undefined
+  const abertoDe = (id: string) => cicloAberto(id, ciclos)
   const plantio = tipo === 'Plantio'
   const colheita = TIPOS_COLHEITA.includes(tipo)
-  const culturaFinal = aberto?.cultura ?? cultura
-  const refCult = culturaFinal ? referenciaCultura(culturaFinal, aberto?.safra ?? nomeSafra(culturaFinal, quando.slice(0, 10))) : undefined
-  const unProd: 'sc' | 't' = aberto?.cultura === 'Cana-de-açúcar' || tipo === 'Corte de cana' ? 't' : 'sc'
-  const prodEsperada = colheita && areaNum && (aberto?.meta_por_ha ?? refCult?.produtividade_ha)
-    ? Math.round(areaNum * (aberto?.meta_por_ha ?? refCult!.produtividade_ha!)) : null
+  const semSafra = escolhidos.filter((t) => !abertoDe(t.id))
+  const aberto1 = primeiro ? abertoDe(primeiro.id) : undefined
+  const culturaFinal = aberto1?.cultura ?? cultura
+  const refCult = culturaFinal ? referenciaCultura(culturaFinal, aberto1?.safra ?? nomeSafra(culturaFinal, quando.slice(0, 10))) : undefined
+  const unProd = (id: string): 'sc' | 't' => abertoDe(id)?.cultura === 'Cana-de-açúcar' || tipo === 'Corte de cana' ? 't' : 'sc'
+  const esperado = (id: string) => {
+    const c = abertoDe(id)
+    const ref = c ? referenciaCultura(c.cultura, c.safra) : undefined
+    const porHa = c?.meta_por_ha ?? ref?.produtividade_ha
+    return colheita && porHa ? Math.round(areaDe(id) * porHa) : null
+  }
   const condicaoRuim = pulv && ((num(vento) ?? 0) > 10 || (num(umid) ?? 100) < 55 || (num(temp) ?? 0) > 30)
 
-  function mudaTalhao(id: string) {
-    setTalhaoId(id)
-    const t = talhoes.find((x) => x.id === id)
-    // Troca a área junto com o talhão, a menos que a pessoa já tenha digitado outra.
-    const anterior = talhoes.find((x) => x.id === talhaoId)
-    const doAnterior = anterior && num(area) === Number(anterior.area_ha)
-    if (t && (!area || doAnterior)) setArea(String(t.area_ha).replace('.', ','))
-  }
+  // Mapa: talhões dentro do filtro do app, mais os marcados aqui.
+  const noMapa = useMemo(() => talhoes.filter((t) => naSelecao(filtro, t.id) || marcados.includes(t.id)), [talhoes, filtro, marcados])
+  const sitMapa = useMemo(() => (tipo && d ? situacaoNoMapa(noMapa, d.operacoes, ciclos, tipo, marcados) : null), [tipo, d, noMapa, ciclos, marcados])
+  const resumosFiltro = useMemo(() => resumos.filter((r) => naSelecao(filtro, r.talhao.id) || marcados.includes(r.talhao.id)), [resumos, filtro, marcados])
+
+  const mudaMarcados = useCallback((ids: string[]) => setMarcados(ids), [])
+  const alterna = (id: string) => setMarcados((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]))
   const mudaProd = (i: number, p: Partial<LinhaProduto>) => setProdutos(produtos.map((x, j) => (j === i ? { ...x, ...p } : x)))
+  const mudaSobra = (i: number, p: Partial<LinhaSobra>) => setSobras(sobras.map((x, j) => (j === i ? { ...x, ...p } : x)))
+
+  const fimIso = !aberta && variosDias && fim ? new Date(fim).toISOString() : null
+  const fimAntes = !!fimIso && new Date(fim).getTime() < new Date(quando).getTime()
+  const podeSalvar = escolhidos.length > 0 && !!tipo && !(plantio && semSafra.length > 0 && !cultura) && !fimAntes
 
   async function enviar(e: FormEvent) {
     e.preventDefault()
-    if (!talhaoId || !tipo) return
-    const id = uuid()
-    const criaSafra = plantio && !aberto && !!cultura
-    const cicloId = aberto?.id ?? (criaSafra ? uuid() : null)
+    if (!podeSalvar) return
     const dataHora = new Date(quando).toISOString()
-    const novaSafra: Ciclo | undefined = criaSafra ? {
-      id: cicloId!, talhao_id: talhaoId, safra: nomeSafra(cultura, diaLocal(dataHora)), cultura, cultivar: cultivar || null,
-      populacao_plantas_ha: num(populacao), data_plantio: diaLocal(dataHora), status: 'Em andamento',
-    } : undefined
-    const prods: OperacaoProduto[] = produtos
-      .filter((p) => p.insumo_id && num(p.dose))
-      .map((p) => {
-        const ins = insumos.find((x) => x.id === p.insumo_id)!
-        const dose = num(p.dose)!
-        return { id: p.id, operacao_id: id, insumo_id: p.insumo_id, dose_ha: dose, unidade: ins.unidade, quantidade_total: areaNum ? dose * areaNum : null }
+    const lote = varios ? uuid() : null
+    const ops: Operacao[] = [], prods: OperacaoProduto[] = [], novas: Ciclo[] = []
+    for (const t of escolhidos) {
+      const id = uuid()
+      const ab = abertoDe(t.id)
+      const criaSafra = plantio && !ab && !!cultura
+      const cicloId = ab?.id ?? (criaSafra ? uuid() : null)
+      const cult = ab?.cultura ?? cultura
+      if (criaSafra) novas.push({
+        id: cicloId!, talhao_id: t.id, safra: nomeSafra(cultura, diaLocal(dataHora)), cultura, cultivar: cultivar || null,
+        populacao_plantas_ha: num(populacao), data_plantio: diaLocal(dataHora), status: 'Em andamento',
       })
-    await salvarOperacao({
-      id, data_hora: dataHora, autor_id: eu.id, talhao_id: talhaoId, ciclo_id: cicloId, tipo,
-      cultura: plantio ? culturaFinal || null : null, cultivar: plantio ? cultivar || null : null,
-      populacao_plantas_ha: plantio ? num(populacao) : null,
-      producao: colheita ? num(producao) : null, unidade_producao: colheita && num(producao) != null ? unProd : null,
-      area_ha: areaNum, horas: num(horas), alvo: alvo || null,
-      volume_calda_l_ha: pulv ? num(calda) : null, temperatura_c: pulv ? num(temp) : null,
-      umidade_pct: pulv ? num(umid) : null, vento_kmh: pulv ? num(vento) : null,
-      receituario: receita || null, observacao: obs || null,
-      latitude: pos?.p[0] ?? null, longitude: pos?.p[1] ?? null,
-    }, prods, novaSafra)
-    setSalvo(true)
-    setTimeout(pronto, 900)
+      const area = areaDe(t.id) || null
+      for (const p of produtos) {
+        const ins = insumos.find((x) => x.id === p.insumo_id)
+        const dose = num(p.dose)
+        if (!ins || !dose) continue
+        prods.push({ id: uuid(), operacao_id: id, insumo_id: ins.id, dose_ha: dose, unidade: ins.unidade, quantidade_total: area ? dose * area : null })
+      }
+      const minhas: Sobra[] = plantio ? sobras.filter((s) => s.cultivar.trim() && (s.talhao_id === t.id || (!varios && !s.talhao_id)))
+        .map((s) => ({ cultivar: s.cultivar.trim(), sementes: s.sementes.trim() || null, area_ha: num(s.area) })) : []
+      const prod = colheita && !aberta ? num(producoes[t.id]) : null
+      ops.push({
+        id, data_hora: dataHora, autor_id: eu.id, talhao_id: t.id, ciclo_id: cicloId, tipo,
+        em_andamento: aberta, data_fim: fimIso, lote_id: lote, sobras: minhas.length ? minhas : null,
+        cultura: plantio ? cult || null : null, cultivar: plantio ? cultivar || null : null,
+        populacao_plantas_ha: plantio ? num(populacao) : null,
+        producao: prod, unidade_producao: prod != null ? unProd(t.id) : null,
+        area_ha: area, horas: num(horas), alvo: alvo || null,
+        volume_calda_l_ha: pulv ? num(calda) : null, temperatura_c: pulv ? num(temp) : null,
+        umidade_pct: pulv ? num(umid) : null, vento_kmh: pulv ? num(vento) : null,
+        receituario: receita || null, observacao: obs || null,
+        latitude: pos?.p[0] ?? null, longitude: pos?.p[1] ?? null,
+      })
+    }
+    await salvarOperacoes(ops, prods, novas)
+    setSalvo(ops.length)
+    setTimeout(pronto, 1100)
   }
 
-  if (salvo) return <div className="tela"><Aviso tipo="ok">Operação salva. ✔</Aviso></div>
+  if (salvo) return (
+    <div className="tela"><Aviso tipo="ok">{salvo > 1 ? `${salvo} operações salvas, uma por talhão.` : 'Operação salva.'}{aberta ? ' Ela fica em andamento até você marcar que terminou.' : ''} ✔</Aviso></div>
+  )
 
   return (
-    <form className="tela" onSubmit={enviar}>
-      <h1>Operação</h1>
-      <SeletorTalhao valor={talhaoId} muda={mudaTalhao} />
-      <Escolha t="O que foi feito" opcoes={TIPOS_OPERACAO} valor={tipo} muda={setTipo} />
-      <div className="duas">
-        <Rotulo t="Quando"><input type="datetime-local" required value={quando} onChange={(e) => setQuando(e.target.value)} /></Rotulo>
-        <Rotulo t="Área feita (ha)" dica={talhao ? `Talhão tem ${fmtN(Number(talhao.area_ha), 2)} ha` : undefined}>
-          <input inputMode="decimal" value={area} onChange={(e) => setArea(e.target.value)} />
-        </Rotulo>
-      </div>
-
-      {talhao && tipo && (
-        <p className="liga-safra">
-          {aberto ? <>Entra na safra <b>{grupoSafra(aberto)} · {aberto.cultura}</b>{aberto.status === 'Planejado' && plantio ? ' e ela passa para "em andamento"' : ''}.</>
-            : plantio ? <>Este talhão não tem safra aberta. Escolha a cultura e a safra é criada sozinha.</>
-            : <>Este talhão não tem safra aberta. A operação fica só na linha do tempo do talhão.</>}
-        </p>
-      )}
-
-      {plantio && (
-        <fieldset>
-          <legend>Safra</legend>
-          {!aberto && <Escolha t="Cultura" opcoes={CULTURAS} valor={cultura as (typeof CULTURAS)[number]} muda={setCultura} />}
-          <div className="duas">
-            <Rotulo t="Cultivar / variedade"><input value={cultivar} onChange={(e) => setCultivar(e.target.value)} placeholder={aberto?.cultivar ?? ''} /></Rotulo>
-            {culturaFinal !== 'Cana-de-açúcar' && (
-              <Rotulo t="População (plantas/ha)" dica={refCult?.populacao_ha ? `(padrão mercado: ${fmtN(refCult.populacao_ha)})` : undefined}>
-                <input inputMode="numeric" value={populacao} onChange={(e) => setPopulacao(e.target.value)} placeholder={refCult?.populacao_ha ? `(${fmtN(refCult.populacao_ha)})` : ''} />
-              </Rotulo>
-            )}
-          </div>
-          {refCult?.populacao_ha && !populacao && culturaFinal !== 'Cana-de-açúcar' && (
-            <button type="button" className="mercado" onClick={() => setPopulacao(String(refCult.populacao_ha))}>Usar padrão mercado: {fmtN(refCult.populacao_ha)} plantas/ha</button>
-          )}
-        </fieldset>
-      )}
-
-      {colheita && (
-        <fieldset>
-          <legend>Produção colhida</legend>
-          <Rotulo t={`Produção desta área (${unProd})`} dica="Soma na safra. Com 95% da área colhida, a safra fecha sozinha.">
-            <input inputMode="decimal" value={producao} onChange={(e) => setProducao(e.target.value)} placeholder={prodEsperada ? `(esperado ${fmtN(prodEsperada)} ${unProd})` : ''} />
+    <div className="tela tela-operacao">
+      <MapaOperacao talhoes={noMapa} marcados={marcados} situacao={sitMapa} alterna={alterna} tipo={tipo} />
+      <form className="form-operacao" onSubmit={enviar}>
+        <h1>Operação</h1>
+        {d && <SeletorTalhoes resumos={resumosFiltro} d={d} marcados={marcados} muda={mudaMarcados} gps={gps} />}
+        <Escolha t="O que foi feito" opcoes={TIPOS_OPERACAO} valor={tipo} muda={setTipo} />
+        {tipo && (
+          <Escolha t="Situação" opcoes={SITUACOES} valor={situacao} muda={setSituacao}
+            dica={aberta ? 'Fica "em andamento" no talhão e no Início. Os insumos já saem do estoque; ao terminar, você confirma a área feita.' : undefined} />
+        )}
+        <div className="duas">
+          <Rotulo t={aberta ? 'Começou em' : variosDias ? 'Começou em' : 'Quando'}>
+            <input type="datetime-local" required value={quando} onChange={(e) => setQuando(e.target.value)} />
           </Rotulo>
-          {prodEsperada != null && <small className="dica">({aberto?.meta_por_ha ? 'pela meta' : 'padrão mercado'}: {fmtN(aberto?.meta_por_ha ?? refCult?.produtividade_ha, 1)} {unProd}/ha × {fmtN(areaNum, 2)} ha)</small>}
-        </fieldset>
-      )}
+          {!aberta && variosDias ? (
+            <Rotulo t="Terminou em" dica={fimAntes ? 'O término ficou antes do início.' : undefined}>
+              <input type="datetime-local" value={fim} min={quando} onChange={(e) => setFim(e.target.value)} />
+            </Rotulo>
+          ) : !aberta ? (
+            <div className="campo"><span className="rotulo">&nbsp;</span>
+              <button type="button" className="link" onClick={() => { setVariosDias(true); setFim(agoraLocal()) }}>+ Durou mais de um dia</button>
+            </div>
+          ) : null}
+        </div>
 
-      {(USA_PRODUTO.includes(tipo) || produtos.length > 0) && (
-        <fieldset>
-          <legend>{pulv ? 'Produtos da calda' : 'Insumos usados'}</legend>
-          {produtos.map((p, i) => {
-            const ins = insumos.find((x) => x.id === p.insumo_id)
-            const total = ins && num(p.dose) && areaNum ? num(p.dose)! * areaNum : null
-            const ref = referenciaInsumo(ins?.nome)
-            const padrao = ins?.dose_ha_padrao != null ? `${fmtN(Number(ins.dose_ha_padrao), 3)} ${ins.unidade}/ha` : doseMercado(ref)
-            return (
-              <div className="produto" key={p.id}>
-                <select value={p.insumo_id} onChange={(e) => mudaProd(i, { insumo_id: e.target.value })} aria-label="Insumo">
-                  <option value="">Insumo…</option>
-                  {insumos.filter((x) => x.ativo !== false).map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}
-                </select>
-                <input inputMode="decimal" placeholder={padrao ? `(${padrao})` : `Dose ${ins?.unidade ?? ''}/ha`} value={p.dose} onChange={(e) => mudaProd(i, { dose: e.target.value })} aria-label="Dose por hectare" />
-                <button type="button" className="mini" onClick={() => setProdutos(produtos.filter((_, j) => j !== i))} aria-label="Remover">✕</button>
-                {total != null && <small className="dica">Total: {fmtN(total, 2)} {ins?.unidade} · sai do estoque</small>}
-                {total == null && padrao && <small className="dica">({ins?.dose_ha_padrao != null ? 'dose cadastrada' : 'padrão mercado, bula'}: {padrao})</small>}
+        {escolhidos.length > 0 && (
+          <fieldset className="por-talhao">
+            <legend>{varios ? `Área em cada talhão · ${fmtN(areaTotal, 2)} ha no total` : 'Área feita'}</legend>
+            {escolhidos.map((t) => {
+              const ab = abertoDe(t.id)
+              const esp = esperado(t.id)
+              return (
+                <div className="linha-talhao-op" key={t.id}>
+                  <div className="nome">
+                    <b>{t.nome}</b>
+                    <small>{ab ? `${grupoSafra(ab)} · ${ab.cultura}` : plantio ? (cultura ? `nova safra de ${cultura}` : 'sem safra: escolha a cultura') : 'sem safra aberta: fica só na linha do tempo'}</small>
+                  </div>
+                  <label className="campo-mini">
+                    <span>ha {aberta ? 'planejados' : 'feitos'}</span>
+                    <input inputMode="decimal" aria-label={`Área em ${t.nome} (ha)`} value={areas[t.id] ?? String(t.area_ha).replace('.', ',')}
+                      onChange={(e) => setAreas({ ...areas, [t.id]: e.target.value })} />
+                  </label>
+                  {colheita && !aberta && (
+                    <label className="campo-mini">
+                      <span>produção ({unProd(t.id)})</span>
+                      <input inputMode="decimal" aria-label={`Produção em ${t.nome}`} value={producoes[t.id] ?? ''} placeholder={esp ? `(esp. ${fmtN(esp)})` : ''}
+                        onChange={(e) => setProducoes({ ...producoes, [t.id]: e.target.value })} />
+                    </label>
+                  )}
+                </div>
+              )
+            })}
+            {colheita && !aberta && <small className="dica">A produção soma na safra. Com 95% da área colhida, a safra fecha sozinha.</small>}
+            {colheita && aberta && <small className="dica">A produção é informada quando a colheita terminar. Enquanto estiver em andamento, a safra não fecha.</small>}
+          </fieldset>
+        )}
+
+        {plantio && escolhidos.length > 0 && (
+          <fieldset>
+            <legend>Safra e variedade</legend>
+            {semSafra.length > 0 && (
+              <Escolha t={varios && semSafra.length < escolhidos.length ? `Cultura (para ${semSafra.map((t) => t.nome).join(', ')})` : 'Cultura'}
+                opcoes={CULTURAS} valor={cultura as (typeof CULTURAS)[number]} muda={setCultura} />
+            )}
+            <div className="duas">
+              <Rotulo t="Variedade principal"><input value={cultivar} onChange={(e) => setCultivar(e.target.value)} placeholder={aberto1?.cultivar ?? ''} /></Rotulo>
+              {culturaFinal !== 'Cana-de-açúcar' && (
+                <Rotulo t="População (plantas/ha)" dica={refCult?.populacao_ha ? `(padrão mercado: ${fmtN(refCult.populacao_ha)})` : undefined}>
+                  <input inputMode="numeric" value={populacao} onChange={(e) => setPopulacao(e.target.value)} placeholder={refCult?.populacao_ha ? `(${fmtN(refCult.populacao_ha)})` : ''} />
+                </Rotulo>
+              )}
+            </div>
+            {refCult?.populacao_ha && !populacao && culturaFinal !== 'Cana-de-açúcar' && (
+              <button type="button" className="mercado" onClick={() => setPopulacao(String(refCult.populacao_ha))}>Usar padrão mercado: {fmtN(refCult.populacao_ha)} plantas/ha</button>
+            )}
+            {sobras.map((x, i) => (
+              <div className="sobra" key={x.id}>
+                <span className="rotulo">Também entrou</span>
+                {varios && (
+                  <select value={x.talhao_id} onChange={(e) => mudaSobra(i, { talhao_id: e.target.value })} aria-label="Em qual talhão">
+                    <option value="">Talhão…</option>
+                    {escolhidos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                  </select>
+                )}
+                <input value={x.cultivar} placeholder="Outra variedade" aria-label="Outra variedade" onChange={(e) => mudaSobra(i, { cultivar: e.target.value })} />
+                <input value={x.sementes} placeholder="Semente (ex.: 3 bags)" aria-label="Quantidade de semente" maxLength={60} onChange={(e) => mudaSobra(i, { sementes: e.target.value })} />
+                <input value={x.area} inputMode="decimal" placeholder="≈ ha (opcional)" aria-label="Área aproximada (ha)" onChange={(e) => mudaSobra(i, { area: e.target.value })} />
+                <button type="button" className="mini" onClick={() => setSobras(sobras.filter((_, j) => j !== i))} aria-label="Remover">✕</button>
               </div>
-            )
-          })}
-          <button type="button" className="secundario" onClick={() => setProdutos([...produtos, { id: uuid(), insumo_id: '', dose: '' }])}>+ Produto</button>
-          {insumos.length === 0 && <small className="dica">Nenhum insumo cadastrado ainda (Mais › Insumos).</small>}
-        </fieldset>
-      )}
+            ))}
+            {sobras.length < 5 && (
+              <button type="button" className="secundario" onClick={() => setSobras([...sobras, { id: uuid(), talhao_id: varios ? '' : primeiro!.id, cultivar: '', sementes: '', area: '' }])}>
+                + Também entrou outra variedade (sobra)
+              </button>
+            )}
+            {sobras.length > 0 && <small className="dica">A produtividade continua sendo do talhão; a sobra fica registrada no histórico. Medidas são opcionais.</small>}
+          </fieldset>
+        )}
 
-      {pulv && (
-        <fieldset>
-          <legend>Aplicação</legend>
-          <Rotulo t="Alvo"><input value={alvo} onChange={(e) => setAlvo(e.target.value)} placeholder="Ex.: percevejo, ferrugem" /></Rotulo>
-          <div className="quatro">
-            <Rotulo t="Calda L/ha"><input inputMode="decimal" value={calda} onChange={(e) => setCalda(e.target.value)} /></Rotulo>
-            <Rotulo t="Temp. °C"><input inputMode="decimal" value={temp} onChange={(e) => setTemp(e.target.value)} /></Rotulo>
-            <Rotulo t="Umidade %"><input inputMode="decimal" value={umid} onChange={(e) => setUmid(e.target.value)} /></Rotulo>
-            <Rotulo t="Vento km/h"><input inputMode="decimal" value={vento} onChange={(e) => setVento(e.target.value)} /></Rotulo>
-          </div>
-          {estimado && (!temp || !umid || !vento) && (
-            <button type="button" className="secundario" onClick={preencher}>
-              Usar clima estimado da sede {sede?.nome}: {estimado.temperatura_c} °C · {Math.round(Number(estimado.umidade_pct))}% · {estimado.vento_kmh} km/h
-            </button>
-          )}
-          {condicaoRuim && <Aviso tipo="alerta">Condição fora da faixa recomendada (vento até 10 km/h, umidade acima de 55%, temperatura até 30 °C).</Aviso>}
-          <Rotulo t="Receituário"><input value={receita} onChange={(e) => setReceita(e.target.value)} /></Rotulo>
-        </fieldset>
-      )}
+        {(USA_PRODUTO.includes(tipo) || produtos.length > 0) && (
+          <fieldset>
+            <legend>{pulv ? 'Produtos da calda' : 'Insumos usados'}{varios ? ' (mesma dose em todos)' : ''}</legend>
+            {produtos.map((p, i) => {
+              const ins = insumos.find((x) => x.id === p.insumo_id)
+              const total = ins && num(p.dose) && areaTotal ? num(p.dose)! * areaTotal : null
+              const ref = referenciaInsumo(ins?.nome)
+              const padrao = ins?.dose_ha_padrao != null ? `${fmtN(Number(ins.dose_ha_padrao), 3)} ${ins.unidade}/ha` : doseMercado(ref)
+              return (
+                <div className="produto" key={p.id}>
+                  <select value={p.insumo_id} onChange={(e) => mudaProd(i, { insumo_id: e.target.value })} aria-label="Insumo">
+                    <option value="">Insumo…</option>
+                    {insumos.filter((x) => x.ativo !== false).map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                  </select>
+                  <input inputMode="decimal" placeholder={padrao ? `(${padrao})` : `Dose ${ins?.unidade ?? ''}/ha`} value={p.dose} onChange={(e) => mudaProd(i, { dose: e.target.value })} aria-label="Dose por hectare" />
+                  <button type="button" className="mini" onClick={() => setProdutos(produtos.filter((_, j) => j !== i))} aria-label="Remover">✕</button>
+                  {total != null && <small className="dica">Total: {fmtN(total, 2)} {ins?.unidade}{varios ? ` em ${escolhidos.length} talhões` : ''} · sai do estoque</small>}
+                  {total == null && padrao && <small className="dica">({ins?.dose_ha_padrao != null ? 'dose cadastrada' : 'padrão mercado, bula'}: {padrao})</small>}
+                </div>
+              )
+            })}
+            <button type="button" className="secundario" onClick={() => setProdutos([...produtos, { id: uuid(), insumo_id: '', dose: '' }])}>+ Produto</button>
+            {insumos.length === 0 && <small className="dica">Nenhum insumo cadastrado ainda (Mais › Insumos).</small>}
+          </fieldset>
+        )}
 
-      <div className="duas">
-        <Rotulo t="Horas de máquina"><input inputMode="decimal" value={horas} onChange={(e) => setHoras(e.target.value)} /></Rotulo>
-        {!pulv && <Rotulo t="Alvo / detalhe"><input value={alvo} onChange={(e) => setAlvo(e.target.value)} /></Rotulo>}
-      </div>
-      <Rotulo t="Observação"><textarea rows={2} value={obs} onChange={(e) => setObs(e.target.value)} /></Rotulo>
-      <button className="primario fixo" disabled={!talhaoId || !tipo || (plantio && !aberto && !cultura)}>Salvar operação</button>
-    </form>
+        {pulv && (
+          <fieldset>
+            <legend>Aplicação</legend>
+            <Rotulo t="Alvo"><input value={alvo} onChange={(e) => setAlvo(e.target.value)} placeholder="Ex.: percevejo, ferrugem" /></Rotulo>
+            <div className="quatro">
+              <Rotulo t="Calda L/ha"><input inputMode="decimal" value={calda} onChange={(e) => setCalda(e.target.value)} /></Rotulo>
+              <Rotulo t="Temp. °C"><input inputMode="decimal" value={temp} onChange={(e) => setTemp(e.target.value)} /></Rotulo>
+              <Rotulo t="Umidade %"><input inputMode="decimal" value={umid} onChange={(e) => setUmid(e.target.value)} /></Rotulo>
+              <Rotulo t="Vento km/h"><input inputMode="decimal" value={vento} onChange={(e) => setVento(e.target.value)} /></Rotulo>
+            </div>
+            {estimado && (!temp || !umid || !vento) && (
+              <button type="button" className="secundario" onClick={preencher}>
+                Usar clima estimado da sede {sede?.nome}: {estimado.temperatura_c} °C · {Math.round(Number(estimado.umidade_pct))}% · {estimado.vento_kmh} km/h
+              </button>
+            )}
+            {condicaoRuim && <Aviso tipo="alerta">Condição fora da faixa recomendada (vento até 10 km/h, umidade acima de 55%, temperatura até 30 °C).</Aviso>}
+            <Rotulo t="Receituário"><input value={receita} onChange={(e) => setReceita(e.target.value)} /></Rotulo>
+          </fieldset>
+        )}
+
+        <div className="duas">
+          <Rotulo t="Horas de máquina"><input inputMode="decimal" value={horas} onChange={(e) => setHoras(e.target.value)} /></Rotulo>
+          {!pulv && <Rotulo t="Alvo / detalhe"><input value={alvo} onChange={(e) => setAlvo(e.target.value)} /></Rotulo>}
+        </div>
+        <Rotulo t="Observação"><textarea rows={2} value={obs} onChange={(e) => setObs(e.target.value)} /></Rotulo>
+        <button className="primario fixo" disabled={!podeSalvar}>
+          {varios ? `Salvar em ${escolhidos.length} talhões` : aberta ? 'Salvar e deixar em andamento' : 'Salvar operação'}
+        </button>
+      </form>
+    </div>
   )
 }
