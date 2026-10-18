@@ -1,0 +1,44 @@
+name: Atualizar grafo do código
+
+# Mantém graphify-out/ igual ao código. Só relê o código (sem IA, sem chave, sem custo).
+# O commit feito aqui usa o GITHUB_TOKEN, que não dispara outros workflows:
+# não republica o app nem entra em loop.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'supabase/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - 'vite.config.ts'
+      - '.github/workflows/grafo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: grafo
+  cancel-in-progress: true
+
+jobs:
+  grafo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install "graphifyy[sql]==0.9.92"
+      - run: graphify update .
+      - name: Salvar grafo atualizado
+        run: |
+          git add graphify-out
+          if git diff --cached --quiet; then echo "Grafo já atualizado."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Atualiza grafo do código"
+          git push
