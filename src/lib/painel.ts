@@ -4,6 +4,7 @@ import { diagnosticoSafra, diasDoCiclo, estadioDaSafra, type CicloVivo, type Dia
 import { corDosProblemas, ordenar, situacao, type Cor, type Problema } from './problemas'
 import { referenciaInsumo } from './mercado'
 import { centro, contornoParaPontos, distanciaM, type Ponto } from './geo'
+import { operacoesDaSafra } from './operacoes'
 
 export type Dados = {
   talhoes: Talhao[]; ciclos: Ciclo[]; operacoes: Operacao[]; produtos: OperacaoProduto[]
@@ -122,7 +123,7 @@ export function resumoTalhao(t: Talhao, d: Dados): Resumo {
   const progresso = emCampo && dap != null && diasCiclo ? Math.min(1, Math.max(0, dap / diasCiclo)) : null
 
   const ops = d.operacoes.filter((o) => o.talhao_id === t.id).sort((a, b) => b.data_hora.localeCompare(a.data_hora))
-  const opsCiclo = ciclo ? ops.filter((o) => o.ciclo_id === ciclo.id) : []
+  const opsCiclo = ciclo ? operacoesDaSafra(ciclo, ops, d.ciclos) : []
   let custoTotal = 0, temCusto = false, custoEstimado = false
   const idsOps = new Set(opsCiclo.map((o) => o.id))
   for (const p of d.produtos) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { duracaoDias, fichaSafra, lotesAbertos, situacaoNoMapa } from '../src/lib/operacoes'
+import { condicaoAplicacao, duracaoDias, fichaSafra, lotesAbertos, operacoesDaSafra, situacaoNoMapa } from '../src/lib/operacoes'
 import { derivarCiclo } from '../src/lib/safra'
 import { problema } from '../src/lib/validar'
 import type { Ciclo, Operacao } from '../src/lib/tipos'
@@ -65,5 +65,29 @@ describe('validação', () => {
     expect(problema('operacoes', { data_hora: '2026-10-05T13:00:00Z', data_fim: '2026-10-04T13:00:00Z' })).toMatch(/antes do início/)
     expect(problema('operacoes', { sobras: [{ cultivar: ' ' }] })).toMatch(/outra variedade/)
     expect(problema('operacoes', { data_hora: '2026-10-05T13:00:00Z', data_fim: '2026-10-06T13:00:00Z', sobras: [{ cultivar: 'X', area_ha: 2 }] }, hoje.getTime())).toBeNull()
+  })
+})
+
+describe('operações da safra e aplicações', () => {
+  it('dessecação e adubação antes do plantio entram na safra; as de antes da colheita anterior não', () => {
+    const c = ciclo({ data_plantio: '2026-10-19' })
+    const ant = ciclo({ id: 'c0', status: 'Colhido', data_colheita: '2026-08-10' })
+    const ops = [
+      op({ tipo: 'Plantio', data_hora: '2026-10-19T13:00:00Z' }),
+      op({ id: 'des', tipo: 'Pulverização', ciclo_id: null, data_hora: '2026-10-15T13:00:00Z' }),
+      op({ id: 'velha', tipo: 'Pulverização', ciclo_id: null, data_hora: '2026-08-01T13:00:00Z' }),
+      op({ id: 'outro', tipo: 'Pulverização', ciclo_id: null, talhao_id: 't2', data_hora: '2026-10-15T13:00:00Z' }),
+      op({ id: 'apagada', tipo: 'Adubação', ciclo_id: null, data_hora: '2026-10-10T13:00:00Z', excluido_em: '2026-10-11T00:00:00Z' }),
+    ]
+    const ids = operacoesDaSafra(c, ops, [c, ant]).map((o) => o.id)
+    expect(ids).toContain('des')
+    expect(ids).not.toContain('velha')
+    expect(ids).not.toContain('outro')
+    expect(ids).not.toContain('apagada')
+  })
+  it('condição da aplicação frente à faixa', () => {
+    expect(condicaoAplicacao({ temperatura_c: 19, umidade_pct: 77, vento_kmh: 5.8 })).toEqual({ nivel: 'bom', fora: [] })
+    expect(condicaoAplicacao({ temperatura_c: 21.4, umidade_pct: 69, vento_kmh: 11.6 }).fora).toEqual(['vento acima de 10 km/h'])
+    expect(condicaoAplicacao({}).nivel).toBe('sem-dados')
   })
 })
