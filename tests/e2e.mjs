@@ -223,6 +223,9 @@ try {
   await pagina.getByRole('button', { name: /T01 Sede/ }).click()
   await espera('Pulverização · Ferrugem-asiática')
   await espera('Fungicida X 0,6 L/ha')
+  await espera('Aplicações desta safra')
+  ok(await pagina.locator('.aplicacoes li', { hasText: 'Ferrugem-asiática' }).locator('.selo', { hasText: 'Fora da faixa' }).isVisible(), 'aplicação com vento de 14 km/h aparece fora da faixa no talhão')
+  await pagina.locator('section', { has: pagina.locator('.aplicacoes') }).screenshot({ path: `${SAIDA}/3a-aplicacoes-talhao.png` })
   await foto('3-talhao-sem-sinal')
 
   // Sinal volta.

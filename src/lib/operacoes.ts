@@ -97,3 +97,44 @@ export function fichaSafra(c: Ciclo, ops: Operacao[], hoje = new Date()): FichaS
     cicloCompleto: completo || c.status === 'Colhido',
   }
 }
+
+// ── Operações da safra e aplicações ──────────────────────────────────────
+/** Antes do plantio, operações sem safra até este tanto de dias entram na safra (dessecação, adubação de base). */
+export const DIAS_PRE_PLANTIO = 90
+
+/**
+ * Operações que pertencem à safra: as ligadas a ela e as feitas no talhão antes do plantio sem safra
+ * aberta (dessecação, adubação de base), desde a colheita da safra anterior e no máximo 90 dias antes.
+ */
+export function operacoesDaSafra(c: Ciclo, ops: Operacao[], ciclos: Ciclo[]): Operacao[] {
+  const plantio = c.data_plantio
+  let inicio = ''
+  if (plantio) {
+    inicio = new Date(new Date(plantio + 'T12:00:00Z').getTime() - DIAS_PRE_PLANTIO * DIA).toISOString().slice(0, 10)
+    for (const x of ciclos) {
+      if (x.id === c.id || x.talhao_id !== c.talhao_id || x.excluido_em || !x.data_colheita) continue
+      if (x.data_colheita <= plantio && x.data_colheita > inicio) inicio = x.data_colheita
+    }
+  }
+  return ops.filter((o) => !o.excluido_em && (o.ciclo_id === c.id ||
+    (!o.ciclo_id && !!plantio && o.talhao_id === c.talhao_id && diaLocal(o.data_hora) > inicio && diaLocal(o.data_hora) <= plantio)))
+}
+
+export const TIPOS_APLICACAO = ['Pulverização']
+/** Mesma faixa da janela de pulverização do Início. */
+export const FAIXA_APLICACAO = { ventoMax: 10, umidadeMin: 55, tempMax: 30 }
+
+export type Condicao = { nivel: 'bom' | 'atencao' | 'sem-dados'; fora: string[] }
+
+/** Condição da aplicação frente à faixa recomendada: o que ficou fora, ou sem dado anotado. */
+export function condicaoAplicacao(o: Pick<Operacao, 'temperatura_c' | 'umidade_pct' | 'vento_kmh'>): Condicao {
+  const t = o.temperatura_c == null ? null : Number(o.temperatura_c)
+  const u = o.umidade_pct == null ? null : Number(o.umidade_pct)
+  const v = o.vento_kmh == null ? null : Number(o.vento_kmh)
+  if (t == null && u == null && v == null) return { nivel: 'sem-dados', fora: [] }
+  const fora: string[] = []
+  if (v != null && v > FAIXA_APLICACAO.ventoMax) fora.push(`vento acima de ${FAIXA_APLICACAO.ventoMax} km/h`)
+  if (u != null && u < FAIXA_APLICACAO.umidadeMin) fora.push(`umidade abaixo de ${FAIXA_APLICACAO.umidadeMin}%`)
+  if (t != null && t > FAIXA_APLICACAO.tempMax) fora.push(`temperatura acima de ${FAIXA_APLICACAO.tempMax} °C`)
+  return { nivel: fora.length ? 'atencao' : 'bom', fora }
+}

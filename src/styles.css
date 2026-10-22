@@ -531,3 +531,11 @@ body.sem-rolagem { overflow: hidden; }
 .ficha-safras .cab .selo { margin-left: auto; }
 .ficha-safras > li > small { margin: -0.2rem 0 0.45rem; }
 .leaflet-interactive.talhao-marcado { filter: drop-shadow(0 0 6px rgb(255 255 255 / 0.7)); }
+
+/* Aplicações do talhão */
+.aplicacoes li { display: grid; gap: 0.25rem; }
+.aplicacoes .cab { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.aplicacoes li.cond-atencao { border-left: 4px solid var(--aviso); }
+.txt-atencao { color: var(--aviso); }
+.resumo-apl { margin: 0 0 0.6rem; }
+.aplicacoes + .legenda { font-size: 0.8rem; margin: 0.6rem 0 0; }

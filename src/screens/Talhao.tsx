@@ -14,7 +14,9 @@ import { alterar, apagar, restaurar } from '../lib/sync'
 import type { TabelaSync } from '../lib/db'
 import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
 import { EmAndamento } from '../components/EmAndamento'
-import { duracaoDias, fichaSafra } from '../lib/operacoes'
+import { condicaoAplicacao, duracaoDias, fichaSafra, operacoesDaSafra, TIPOS_APLICACAO } from '../lib/operacoes'
+import type { OperacaoProduto } from '../lib/tipos'
+import { diasDesde } from '../lib/formato'
 
 type Evento = { id: string; quando: string; titulo: string; detalhe?: string; tipo: 'op' | 'campo' | 'chuva'; tabela: TabelaSync; autor?: string | null; pendente?: boolean }
 
@@ -34,7 +36,7 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
     ...d.operacoes.filter((o) => o.talhao_id === id).map((o) => ({
       id: o.id, quando: o.data_hora, tipo: 'op' as const, tabela: 'operacoes' as const, autor: o.autor_id, pendente: o._pendente === 1,
       titulo: o.tipo + (o.alvo ? ` · ${o.alvo}` : '') + (o.em_andamento ? ' · em andamento' : o.data_fim && duracaoDias(o) > 1 ? ` · ${duracaoDias(o)} dias (até ${fmtData(o.data_fim)})` : ''),
-      detalhe: [o.sobras?.length ? `também entrou: ${o.sobras.map((x) => x.cultivar).join(', ')}` : ''].filter(Boolean).concat(d.produtos.filter((p) => p.operacao_id === o.id).map((p) => `${nomeInsumo(p.insumo_id)} ${fmtN(p.dose_ha, 2)} ${p.unidade}/ha`).join(' + ') || o.observacao || '').filter(Boolean).join(' · ') || undefined,
+      detalhe: [o.sobras?.length ? `também entrou: ${o.sobras.map((x) => x.cultivar).join(', ')}` : '', TIPOS_APLICACAO.includes(o.tipo) ? textoCondicao(o) : ''].filter(Boolean).concat(d.produtos.filter((p) => p.operacao_id === o.id).map((p) => `${nomeInsumo(p.insumo_id)} ${fmtN(p.dose_ha, 2)} ${p.unidade}/ha`).join(' + ') || o.observacao || '').filter(Boolean).join(' · ') || undefined,
     })),
     ...d.campo.filter((c) => c.talhao_id === id).map((c) => ({
       id: c.id, quando: c.data_hora, tipo: 'campo' as const, tabela: 'campo' as const, autor: c.autor_id, pendente: c._pendente === 1,
@@ -94,6 +96,9 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
 
       {r.problemas.length > 0 && <Problemas ps={r.problemas} />}
 
+      <Aplicacoes ops={r.ciclo ? r.operacoesCiclo : d.operacoes.filter((o) => o.talhao_id === id && (diasDesde(o.data_hora) ?? 999) <= 60)}
+        produtos={d.produtos} nomeInsumo={nomeInsumo} daSafra={!!r.ciclo} />
+
       <EmAndamento ops={d.operacoes.filter((o) => o.talhao_id === id)} talhoes={d.talhoes} />
 
       {ciclos.length > 0 && <FichaTalhao ciclos={ciclos} ops={d.operacoes} area={Number(t.area_ha)} abrir={gestor ? (c) => editarCiclo(id, c) : undefined} />}
@@ -127,6 +132,59 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
         </section>
       )}
     </div>
+  )
+}
+
+const fmtC = (o: Operacao) => [o.temperatura_c != null ? `${fmtN(Number(o.temperatura_c), 1)} °C` : '', o.umidade_pct != null ? `UR ${fmtN(Number(o.umidade_pct), 0)}%` : '',
+  o.vento_kmh != null ? `vento ${fmtN(Number(o.vento_kmh), 1)} km/h` : ''].filter(Boolean).join(' · ')
+
+function textoCondicao(o: Operacao): string {
+  const c = condicaoAplicacao(o)
+  if (c.nivel === 'sem-dados') return 'sem condição anotada'
+  return `${fmtC(o)} (${c.nivel === 'bom' ? 'dentro da faixa' : 'fora da faixa'})`
+}
+
+const ROT_COND = { bom: 'Condição boa', atencao: 'Fora da faixa', 'sem-dados': 'Sem condição' } as const
+
+/** Aplicações da safra (com as feitas antes do plantio): produtos, calda e condição de cada uma frente à faixa recomendada. */
+function Aplicacoes({ ops, produtos, nomeInsumo, daSafra }: { ops: Operacao[]; produtos: OperacaoProduto[]; nomeInsumo: (id: string) => string; daSafra: boolean }) {
+  const apl = ops.filter((o) => TIPOS_APLICACAO.includes(o.tipo)).sort((a, b) => b.data_hora.localeCompare(a.data_hora))
+  const ultima = apl[0] ? diasDesde(apl[0].data_hora) : null
+  const fora = apl.filter((o) => condicaoAplicacao(o).nivel === 'atencao').length
+  const semProduto = apl.filter((o) => !produtos.some((p) => p.operacao_id === o.id)).length
+  return (
+    <section className="cartao">
+      <h2>Aplicações {daSafra ? 'desta safra' : 'dos últimos 60 dias'}</h2>
+      {apl.length === 0 ? <p className="mudo">Nenhuma pulverização registrada{daSafra ? ' nesta safra' : ''}.</p> : <>
+        <p className="mudo resumo-apl">
+          {apl.length} aplicaç{apl.length === 1 ? 'ão' : 'ões'} · última {ultima === 0 ? 'hoje' : ultima === 1 ? 'ontem' : `há ${ultima} dias`}
+          {fora > 0 && <> · <b className="txt-atencao">{fora} fora da faixa</b></>}
+          {semProduto > 0 && <> · {semProduto} sem produto lançado</>}
+        </p>
+        <ul className="lista aplicacoes">
+          {apl.map((o) => {
+            const c = condicaoAplicacao(o)
+            const ps = produtos.filter((p) => p.operacao_id === o.id)
+            return (
+              <li key={o.id} className={`cond-${c.nivel}`}>
+                <div className="cab">
+                  <b>{fmtData(o.data_hora)}{o.alvo ? ` · ${o.alvo}` : ''}</b>
+                  <span className={`selo ${c.nivel}`}>{ROT_COND[c.nivel]}</span>
+                </div>
+                <small>{ps.length ? ps.map((p) => `${nomeInsumo(p.insumo_id)} ${fmtN(p.dose_ha, 2)} ${p.unidade}/ha`).join(' + ') : 'Sem produto lançado'}
+                  {o.volume_calda_l_ha != null ? ` · calda ${fmtN(Number(o.volume_calda_l_ha), 0)} L/ha` : ''}
+                  {o.area_ha != null ? ` · ${fmtN(Number(o.area_ha), 2)} ha` : ''}</small>
+                <small>{c.nivel === 'sem-dados' ? 'Temperatura, umidade e vento não anotados.' : fmtC(o)}
+                  </small>
+                {c.fora.length > 0 && <small className="txt-atencao">Fora da faixa: {c.fora.join(', ')}</small>}
+                {o.ciclo_id == null && daSafra && <small className="mudo">Antes do plantio (conta nesta safra)</small>}
+              </li>
+            )
+          })}
+        </ul>
+        <p className="mudo legenda">Faixa recomendada: vento até 10 km/h, umidade acima de 55% e temperatura até 30 °C.</p>
+      </>}
+    </section>
   )
 }
 
