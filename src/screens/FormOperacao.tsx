@@ -26,6 +26,7 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
   const { pos } = gps
   const d = useDados()
   const insumos = useLive(() => db.insumos.orderBy('nome').toArray()) ?? []
+  const inativos = insumos.filter((x) => x.ativo === false)
   const clima = useLive(() => db.clima.toArray()) ?? []
   const talhoes = useMemo(() => d?.talhoes ?? [], [d])
   const ciclos = useMemo(() => (d?.ciclos ?? []).filter((c) => !c.excluido_em), [d])
@@ -271,6 +272,7 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
             })}
             <button type="button" className="secundario" onClick={() => setProdutos([...produtos, { id: uuid(), insumo_id: '', dose: '' }])}>+ Produto</button>
             {insumos.length === 0 && <small className="dica">Nenhum insumo cadastrado ainda (Mais › Insumos).</small>}
+            {inativos.length > 0 && <small className="dica">Não achou? Fora de uso (não aparecem aqui): {inativos.map((x) => x.nome).join(', ')}. Para voltar, abra em Mais › Insumos e marque "Em uso".</small>}
           </fieldset>
         )}
 

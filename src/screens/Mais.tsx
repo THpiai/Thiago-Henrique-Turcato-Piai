@@ -238,7 +238,8 @@ function FormInsumo({ i, pronto }: { i: Partial<Insumo>; pronto: () => void }) {
         </div>
       </div>
       <Rotulo t="Estoque mínimo" dica="Abaixo disso aparece alerta no início"><input inputMode="decimal" value={f.minimo} onChange={(e) => s('minimo')(e.target.value)} /></Rotulo>
-      <label className="check"><input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Em uso</label>
+      {/* Insumo novo entra sempre em uso; a caixa só aparece ao editar, para não sumir das operações por um toque sem querer. */}
+      {i.id && <label className="check"><input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Em uso <small className="dica">(desmarcado, some da lista ao registrar operação)</small></label>}
       {ref?.preco_url && <p className="fonte">Fonte do preço: <a href={ref.preco_url} target="_blank" rel="noreferrer">{ref.preco_fonte ?? 'link'}</a>{ref.preco_data ? ` (${ref.preco_data})` : ''}. Valores de referência, confira com sua revenda.</p>}
       <button className="primario fixo" disabled={!f.nome.trim() || !f.tipo || !f.unidade || !f.classe}>Salvar</button>
     </form>
