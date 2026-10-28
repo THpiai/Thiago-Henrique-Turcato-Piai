@@ -241,9 +241,9 @@ fieldset > .secundario { margin-bottom: 0.8rem; }
 .tempo time { font-size: 0.84rem; color: var(--mudo); font-variant-numeric: tabular-nums; }
 
 /* ── Mapa ───────────────────────────────────────────────────────────────── */
-.tela-mapa { position: relative; height: calc(100dvh - 3.4rem - 4.3rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+.tela-mapa { position: relative; overflow: hidden; height: calc(100dvh - 3.4rem - 4.3rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
 .mapa { position: absolute; inset: 0; background: #1f2a1f; }
-.mapa.editando { cursor: crosshair; }
+.tela-mapa.editando .mapa { cursor: crosshair; }
 .painel-mapa {
   position: absolute; left: 0.6rem; right: 0.6rem; bottom: 0.6rem; z-index: 500; background: var(--papel); border-radius: 18px;
   padding: 0.9rem; box-shadow: var(--sombra-alta); display: flex; flex-direction: column; gap: 0.55rem; max-height: 58%; overflow-y: auto;
@@ -277,9 +277,9 @@ fieldset > .secundario { margin-bottom: 0.8rem; }
   display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0.5rem 0.1rem; border-radius: 12px;
   border: 1px solid var(--linha); background: var(--papel); color: var(--tinta); font-size: 0.7rem; font-weight: 550; min-height: 58px;
 }
-.ferramentas button:hover:not(:disabled) { background: var(--papel-2); }
+@media (hover: hover) { .ferramentas button:hover:not(:disabled) { background: var(--papel-2); } }
 .ferramentas button:disabled { opacity: 0.35; }
-.ferramentas button.on { background: var(--primario); color: var(--primario-texto); border-color: var(--primario); }
+.ferramentas button.on, .ferramentas button.on:hover { background: var(--primario); color: var(--primario-texto); border-color: var(--primario); }
 
 .vertice span, .vertice-meio span { display: grid; place-items: center; border-radius: 50%; margin: auto; }
 .vertice, .vertice-meio { display: grid; background: none; border: 0; }

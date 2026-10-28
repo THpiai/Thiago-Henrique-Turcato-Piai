@@ -30,7 +30,7 @@ export function Mapa({ abrirTalhao }: { abrirTalhao: (id: string) => void }) {
   const [selecionado, setSelecionado] = useState<string | null>(null)
   const [andando, setAndando] = useState(false)
   const [finalizar, setFinalizar] = useState(false)
-  const { pos } = useGps()
+  const { pos, erro: erroGps } = useGps()
   const edRef = useRef(ed)
   edRef.current = ed
 
@@ -132,6 +132,14 @@ export function Mapa({ abrirTalhao }: { abrirTalhao: (id: string) => void }) {
     if (!ult || distanciaM(ult, pos.p) >= 10) mudar([...e.pts, pos.p], null)
   }, [pos, andando, mudar])
 
+  // Andando, o mapa acompanha a pessoa de perto, para ver a divisa sendo marcada.
+  useEffect(() => {
+    const m = mapa.current
+    if (!andando || !m || !pos) return
+    if (m.getZoom() < 17) m.setView(pos.p, 17)
+    else if (!m.getBounds().pad(-0.2).contains(pos.p)) m.panTo(pos.p)
+  }, [pos, andando])
+
   // Atalhos no computador.
   useEffect(() => {
     if (!ed || finalizar) return
@@ -161,8 +169,9 @@ export function Mapa({ abrirTalhao }: { abrirTalhao: (id: string) => void }) {
   const resumoTalhoes = useMemo(() => d?.talhoes.map((t) => ({ t, c: cicloAtual(t.id, d.ciclos), desenhado: contornoParaPontos(t.contorno).length >= 3 })) ?? [], [d])
 
   return (
-    <div className="tela-mapa">
-      <div ref={caixa} className={ed && !andando ? 'mapa editando' : 'mapa'} data-testid="mapa" />
+    <div className={ed && !andando ? 'tela-mapa editando' : 'tela-mapa'}>
+      {/* A classe do mapa não pode mudar pelo React: apagaria as classes que o Leaflet põe nele (corte e toque). */}
+      <div ref={caixa} className="mapa" data-testid="mapa" />
 
       <aside className="painel-mapa">
         {!ed && (
@@ -238,6 +247,7 @@ export function Mapa({ abrirTalhao }: { abrirTalhao: (id: string) => void }) {
               <button onClick={() => setAndando(!andando)} className={andando ? 'on' : ''} title="Andar a divisa com o GPS"><Icone n="andar" /><span>{andando ? 'Parar' : 'Andar'}</span></button>
               <button onClick={() => editor.current?.enquadrar()} disabled={ed.pts.length < 2} title="Enquadrar"><Icone n="enquadrar" /><span>Ver tudo</span></button>
             </div>
+            {!pos && erroGps && <Aviso tipo="alerta">{erroGps === 'GPS sem permissão' ? 'O app está sem permissão de localização. Libere nas configurações do celular para usar "Aqui" e "Andar".' : 'Procurando o GPS… "Aqui" e "Andar" funcionam quando ele achar.'}</Aviso>}
             {andando && pos && pos.precisao > 25 && <Aviso tipo="alerta">GPS impreciso ({fmtN(pos.precisao)} m). Aguarde melhorar.</Aviso>}
             <div className="acoes">
               <button className="secundario" onClick={sair}>Cancelar</button>
