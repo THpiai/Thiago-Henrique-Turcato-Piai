@@ -22,13 +22,17 @@ export function BotaoApagar({ pergunta, detalhe, aoConfirmar, rotulo }: { pergun
   )
 }
 
-type Aviso = { id: number; texto: string; desfazer: () => void }
+type Aviso = { id: number; texto: string; desfazer?: () => void }
 let ouvinte: ((a: Aviso) => void) | null = null
 let seq = 0
 
 /** Mostra "Apagado · Desfazer" por alguns segundos. */
 export function mostrarDesfazer(texto: string, desfazer: () => void) {
   ouvinte?.({ id: ++seq, texto, desfazer })
+}
+/** Confirmação rápida (ex.: "Insumo salvo"), sem botão de desfazer. */
+export function mostrarAviso(texto: string) {
+  ouvinte?.({ id: ++seq, texto })
 }
 
 export function BarraDesfazer() {
@@ -41,9 +45,9 @@ export function BarraDesfazer() {
   }, [a])
   if (!a) return null
   return (
-    <div className="barra-desfazer" role="status">
+    <div className={a.desfazer ? 'barra-desfazer' : 'barra-desfazer barra-ok'} role="status">
       <span>{a.texto}</span>
-      <button onClick={() => { a.desfazer(); setA(null) }}>Desfazer</button>
+      {a.desfazer ? <button onClick={() => { a.desfazer!(); setA(null) }}>Desfazer</button> : <button onClick={() => setA(null)}>Ok</button>}
     </div>
   )
 }

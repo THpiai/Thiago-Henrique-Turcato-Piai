@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { db } from '../lib/db'
-import { useLive, useSessao } from '../lib/hooks'
+import { useGravar, useIds, useLive, useSessao } from '../lib/hooks'
 import { MOVIMENTOS } from '../lib/opcoes'
-import { fmtN, hojeISO, num, uuid } from '../lib/formato'
+import { fmtN, hojeISO, num } from '../lib/formato'
 import { apagar, restaurar, salvar } from '../lib/sync'
 import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
 import { fmtData } from '../lib/formato'
@@ -18,7 +18,7 @@ function useSaldos() {
     ])
     // Pendente no celular entra no saldo até o servidor confirmar; o que foi para a lixeira não conta.
     const opsApagadas = new Set((await db.operacoes.filter((o) => !!o.excluido_em).toArray()).map((o) => o.id))
-    return insumos.filter((i) => i.ativo !== false).map((i) => {
+    return insumos.filter((i) => i.ativo !== false && !i.excluido_em).map((i) => {
       const s = saldos.find((x) => x.insumo_id === i.id)
       let local = 0
       for (const m of movs.filter((x) => x.insumo_id === i.id && !x.excluido_em))
@@ -80,13 +80,15 @@ function FormMovimento({ pronto }: { pronto: () => void }) {
   const precoUn = ins?.preco_unitario != null ? Number(ins.preco_unitario) : ref?.preco != null && ref.unidade === ins?.unidade ? ref.preco : null
   const valorRef = precoUn != null && num(qtd) ? precoUn * num(qtd)! : null
 
+  const id = useIds()
+  const { salvando, gravar } = useGravar()
   async function enviar(e: FormEvent) {
     e.preventDefault()
-    await salvar('estoque_mov', [{
-      id: uuid(), data, autor_id: eu.id, insumo_id: insumoId, movimento: mov, quantidade: num(qtd)!,
+    const ok = await gravar(() => salvar('estoque_mov', [{
+      id: id(), data, autor_id: eu.id, insumo_id: insumoId, movimento: mov, quantidade: num(qtd)!,
       valor_total: mov === 'Entrada' ? num(valor) : null, nota_fiscal: nf || null, fornecedor: forn || null, observacao: obs || null,
-    }])
-    pronto()
+    }]), 'Movimento salvo')
+    if (ok) pronto()
   }
   return (
     <form className="tela" onSubmit={enviar}>
@@ -96,7 +98,7 @@ function FormMovimento({ pronto }: { pronto: () => void }) {
       <Rotulo t="Insumo">
         <select required value={insumoId} onChange={(e) => setInsumoId(e.target.value)}>
           <option value="">Escolha…</option>
-          {insumos.filter((i) => i.ativo !== false).map((i) => <option key={i.id} value={i.id}>{i.nome} ({i.unidade})</option>)}
+          {insumos.filter((i) => i.ativo !== false && !i.excluido_em).map((i) => <option key={i.id} value={i.id}>{i.nome} ({i.unidade})</option>)}
         </select>
       </Rotulo>
       <div className="duas">
@@ -117,7 +119,7 @@ function FormMovimento({ pronto }: { pronto: () => void }) {
         </>
       )}
       <Rotulo t="Observação"><input value={obs} onChange={(e) => setObs(e.target.value)} /></Rotulo>
-      <button className="primario fixo" disabled={!insumoId || num(qtd) == null}>Salvar</button>
+      <button className="primario fixo" disabled={salvando || !insumoId || num(qtd) == null}>{salvando ? 'Salvando…' : 'Salvar'}</button>
     </form>
   )
 }

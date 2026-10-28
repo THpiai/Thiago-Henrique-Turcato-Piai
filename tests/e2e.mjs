@@ -441,6 +441,58 @@ try {
   const ins = recebidos.find((r) => r.tabela === 'insumos').linhas[0]
   ok(ins.preco_unitario === 268 && ins.unidade === 'L' && ins.tipo === 'Defensivo' && ins.dose_ha_padrao === 0.5 && ins.classe === 'Fungicida', `insumo subiu com dados de mercado (${ins.ingrediente_ativo})`)
 
+  // Repetidos que já estão no servidor (como os 45 do celular sem sinal) chegam na próxima sincronização.
+  for (const id of ['d1', 'd2', 'd3']) banco.insumos.push({ id, nome: 'Glifosato Repetido', tipo: 'Defensivo', classe: 'Herbicida', unidade: 'L', ativo: true })
+  await pagina.getByTestId('sync').last().click()
+  await espera('Glifosato Repetido')
+
+  // Sem sinal: salvar insumo dá retorno na hora, toque repetido não duplica e nome repetido é barrado.
+  semSinal = true
+  await ctx.setOffline(true)
+  await pagina.waitForFunction(() => !navigator.onLine)
+  await pagina.getByRole('button', { name: '+ Insumo' }).click()
+  await pagina.getByLabel('Nome comercial').fill('fox xpro ')
+  await espera('Já existe um insumo com esse nome')
+  ok(await pagina.getByRole('button', { name: 'Salvar', exact: true }).isDisabled(), 'nome já cadastrado não deixa salvar de novo')
+  await pagina.getByRole('button', { name: 'Abrir o que já existe' }).click()
+  await espera('Apagar insumo')
+  await pagina.getByRole('button', { name: '‹ Insumos' }).click()
+  await pagina.getByRole('button', { name: '+ Insumo' }).click()
+  await pagina.getByLabel('Nome comercial').fill('80I82RSF IPRO - Olimpo')
+  await pagina.getByRole('radio', { name: 'Semente' }).first().click()
+  await pagina.getByRole('radio', { name: 'kg' }).click()
+  await pagina.getByRole('radio', { name: 'Semente' }).last().click()
+  const salvarIns = pagina.getByRole('button', { name: 'Salvar', exact: true })
+  await salvarIns.click({ clickCount: 5, delay: 5 }).catch(() => {})
+  await espera('Insumo cadastrado no celular. Sobe sozinho quando tiver sinal.')
+  const olimpos = await pagina.evaluate(() => new Promise((ok) => { const r = indexedDB.open('flor-da-mata'); r.onsuccess = () => { const t = r.result.transaction('insumos').objectStore('insumos').getAll(); t.onsuccess = () => ok(t.result.filter((i) => /olimpo/i.test(i.nome)).length) } }))
+  ok(olimpos === 1, 'vários toques em Salvar sem sinal gravam um insumo só')
+
+  // Repetidos que já existiam: um toque deixa um só e manda o resto para a lixeira.
+  await pagina.getByRole('button', { name: '‹ Mais' }).click()
+  await pagina.locator('.secundarias').getByRole('button', { name: /Insumos/ }).click()
+  await espera('2 insumo(s) repetido(s)')
+  await foto('16-insumos-repetidos')
+  await pagina.getByRole('button', { name: /Deixar um só/ }).click()
+  await espera('2 repetido(s) na lixeira')
+  ok(await pagina.locator('.lista li', { hasText: 'Glifosato Repetido' }).count() === 1, 'sobra um só Glifosato Repetido')
+
+  // Apagar insumo cadastrado errado (vai para a lixeira e volta).
+  await pagina.locator('.lista li', { hasText: '80I82RSF' }).click()
+  await pagina.getByRole('button', { name: 'Apagar insumo' }).click()
+  await pagina.getByRole('alertdialog').getByRole('button', { name: 'Apagar' }).click()
+  await espera('Insumo apagado')
+  ok(await pagina.locator('.lista li', { hasText: '80I82RSF' }).count() === 0, 'insumo apagado some da lista')
+  await pagina.getByRole('button', { name: '‹ Mais' }).click()
+  await pagina.getByRole('button', { name: /Lixeira/ }).first().click()
+  await espera('80I82RSF IPRO - Olimpo')
+  ok(await pagina.locator('.lista li', { hasText: 'Insumo' }).count() === 3, 'insumos apagados aparecem na lixeira')
+  semSinal = false
+  await ctx.setOffline(false)
+  for (let i = 0; i < 50 && recebidos.filter((r) => r.tabela === 'insumos' && r.op === 'update' && r.linhas[0].excluido_em).length < 3; i++) await pagina.waitForTimeout(200)
+  ok(recebidos.filter((r) => r.tabela === 'insumos' && r.op === 'update' && r.linhas[0].excluido_em).length === 3, 'ao voltar o sinal, os apagados sobem para a lixeira do servidor')
+  ok(recebidos.filter((r) => r.tabela === 'insumos' && !r.op).flatMap((r) => r.linhas).filter((l) => /olimpo/i.test(l.nome)).length === 1, 'servidor recebe o insumo uma vez só')
+
   ok(erros.length === 0, 'sem erros de JavaScript' + (erros.length ? ': ' + erros.join(' | ') : ''))
   console.log('\nTODOS OS TESTES PASSARAM')
 } catch (e) {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type FormEvent } from 'react'
 import { db } from '../lib/db'
-import { useDados, useLive, useSessao, useTalhaoGps } from '../lib/hooks'
+import { useDados, useGravar, useIds, useLive, useSessao, useTalhaoGps } from '../lib/hooks'
 import { CULTURAS, TIPOS_OPERACAO } from '../lib/opcoes'
 import { agoraLocal, fmtN, num, uuid } from '../lib/formato'
 import { climaNaHora, resumoTalhao, sedeDoTalhao } from '../lib/painel'
@@ -25,7 +25,7 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
   const gps = useTalhaoGps()
   const { pos } = gps
   const d = useDados()
-  const insumos = useLive(() => db.insumos.orderBy('nome').toArray()) ?? []
+  const insumos = (useLive(() => db.insumos.orderBy('nome').toArray()) ?? []).filter((x) => !x.excluido_em)
   const inativos = insumos.filter((x) => x.ativo === false)
   const clima = useLive(() => db.clima.toArray()) ?? []
   const talhoes = useMemo(() => d?.talhoes ?? [], [d])
@@ -55,6 +55,9 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
   const [populacao, setPopulacao] = useState('')
   const [sobras, setSobras] = useState<LinhaSobra[]>([])
   const [salvo, setSalvo] = useState(0)
+  // Ids fixos desde que o formulário abriu: tocar Salvar de novo grava por cima, não duplica.
+  const idDe = useIds()
+  const { salvando, gravar } = useGravar()
 
   const escolhidos = marcados.map((id) => talhoes.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t)
   const primeiro = escolhidos[0]
@@ -105,13 +108,13 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
     e.preventDefault()
     if (!podeSalvar) return
     const dataHora = new Date(quando).toISOString()
-    const lote = varios ? uuid() : null
+    const lote = varios ? idDe('lote') : null
     const ops: Operacao[] = [], prods: OperacaoProduto[] = [], novas: Ciclo[] = []
     for (const t of escolhidos) {
-      const id = uuid()
+      const id = idDe(`op:${t.id}`)
       const ab = abertoDe(t.id)
       const criaSafra = plantio && !ab && !!cultura
-      const cicloId = ab?.id ?? (criaSafra ? uuid() : null)
+      const cicloId = ab?.id ?? (criaSafra ? idDe(`safra:${t.id}`) : null)
       const cult = ab?.cultura ?? cultura
       if (criaSafra) novas.push({
         id: cicloId!, talhao_id: t.id, safra: nomeSafra(cultura, diaLocal(dataHora)), cultura, cultivar: cultivar || null,
@@ -122,7 +125,7 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
         const ins = insumos.find((x) => x.id === p.insumo_id)
         const dose = num(p.dose)
         if (!ins || !dose) continue
-        prods.push({ id: uuid(), operacao_id: id, insumo_id: ins.id, dose_ha: dose, unidade: ins.unidade, quantidade_total: area ? dose * area : null })
+        prods.push({ id: idDe(`prod:${t.id}:${p.id}`), operacao_id: id, insumo_id: ins.id, dose_ha: dose, unidade: ins.unidade, quantidade_total: area ? dose * area : null })
       }
       const minhas: Sobra[] = plantio ? sobras.filter((s) => s.cultivar.trim() && (s.talhao_id === t.id || (!varios && !s.talhao_id)))
         .map((s) => ({ cultivar: s.cultivar.trim(), sementes: s.sementes.trim() || null, area_ha: num(s.area) })) : []
@@ -140,7 +143,7 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
         latitude: pos?.p[0] ?? null, longitude: pos?.p[1] ?? null,
       })
     }
-    await salvarOperacoes(ops, prods, novas)
+    if (!(await gravar(() => salvarOperacoes(ops, prods, novas)))) return
     setSalvo(ops.length)
     setTimeout(pronto, 1100)
   }
@@ -301,8 +304,8 @@ export function FormOperacao({ pronto }: { pronto: () => void }) {
           {!pulv && <Rotulo t="Alvo / detalhe"><input value={alvo} onChange={(e) => setAlvo(e.target.value)} /></Rotulo>}
         </div>
         <Rotulo t="Observação"><textarea rows={2} value={obs} onChange={(e) => setObs(e.target.value)} /></Rotulo>
-        <button className="primario fixo" disabled={!podeSalvar}>
-          {varios ? `Salvar em ${escolhidos.length} talhões` : aberta ? 'Salvar e deixar em andamento' : 'Salvar operação'}
+        <button className="primario fixo" disabled={!podeSalvar || salvando}>
+          {salvando ? 'Salvando…' : varios ? `Salvar em ${escolhidos.length} talhões` : aberta ? 'Salvar e deixar em andamento' : 'Salvar operação'}
         </button>
       </form>
     </div>

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useDados, useGps, useSessao } from '../lib/hooks'
+import { useDados, useGps, useGravar, useIds, useSessao } from '../lib/hooks'
 import { areaHa, centro, contornoParaPontos, distanciaM, perimetroM, pontosParaContorno, type Ponto } from '../lib/geo'
 import { EditorContorno, enquadrarLivre } from '../lib/editor'
 import { cicloAtual, resumoTalhao } from '../lib/painel'
 import { HEX_CULTURA } from '../lib/opcoes'
-import { fmtN, uuid } from '../lib/formato'
+import { fmtN } from '../lib/formato'
 import { apagar, restaurar, salvar } from '../lib/sync'
 import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
 import { Aviso, Rotulo } from '../components/ui'
@@ -257,14 +257,16 @@ function FormTalhao({ pts, editando, voltar, fechar }: { pts: Ponto[]; editando?
   const [area, setArea] = useState(String(editando ? calc : calc).replace('.', ','))
   const [pluv, setPluv] = useState(editando?.pluviometro ?? false)
   const [obs, setObs] = useState(editando?.observacao ?? '')
+  const id = useIds()
+  const { salvando, gravar: gravando } = useGravar()
   async function gravar() {
     const [lat, lng] = centro(pts)
-    await salvar('talhoes', [{
-      id: editando?.id ?? uuid(), nome: nome.trim(), area_ha: Number(area.replace(',', '.')) || calc,
+    const ok = await gravando(() => salvar('talhoes', [{
+      id: editando?.id ?? id(), nome: nome.trim(), area_ha: Number(area.replace(',', '.')) || calc,
       contorno: pontosParaContorno(pts), latitude: Math.round(lat * 1e6) / 1e6, longitude: Math.round(lng * 1e6) / 1e6,
       pluviometro: pluv, ativo: true, observacao: obs || null,
-    }])
-    fechar()
+    }]), 'Talhão salvo')
+    if (ok) fechar()
   }
   return (
     <div className="form-talhao">
@@ -277,7 +279,7 @@ function FormTalhao({ pts, editando, voltar, fechar }: { pts: Ponto[]; editando?
       <Rotulo t="Observação"><input value={obs} onChange={(e) => setObs(e.target.value)} /></Rotulo>
       <div className="acoes">
         <button className="secundario" onClick={voltar}>Voltar aos pontos</button>
-        <button className="primario" disabled={!nome.trim()} onClick={() => void gravar()}>Salvar talhão</button>
+        <button className="primario" disabled={salvando || !nome.trim()} onClick={() => void gravar()}>{salvando ? 'Salvando…' : 'Salvar talhão'}</button>
       </div>
     </div>
   )

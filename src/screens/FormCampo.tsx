@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { db } from '../lib/db'
-import { useLive, useSessao, useGps } from '../lib/hooks'
-import { agoraLocal, num, uuid } from '../lib/formato'
+import { useGravar, useIds, useLive, useSessao, useGps } from '../lib/hooks'
+import { agoraLocal, num } from '../lib/formato'
 import { cicloAberto } from '../lib/safra'
 import { GRAVIDADES, QUEM_VIU, TIPOS_PROBLEMA } from '../lib/problemas'
 import { salvar } from '../lib/sync'
@@ -63,19 +63,24 @@ export function FormCampo({ pronto }: { pronto: () => void }) {
     setVerFoto(URL.createObjectURL(b))
   }
 
+  const idFixo = useIds()
+  const { salvando, gravar } = useGravar()
   async function enviar(e: FormEvent) {
     e.preventDefault()
-    const id = uuid()
+    const id = idFixo()
     const ciclo = cicloAberto(talhaoId, ciclos)
     const fotoPath = foto ? `campo/${id}.jpg` : null
-    if (foto) await db.fotos.put({ path: fotoPath!, blob: foto, enviada: 0, criada_em: new Date().toISOString() })
-    await salvar('campo', [{
-      id, data_hora: new Date(quando).toISOString(), autor_id: eu.id, talhao_id: talhaoId,
-      ciclo_id: ciclo?.id ?? null, tipo, alvo: alvo.trim() || null, gravidade: grav || null, quem_viu: quem,
-      nivel_encontrado: num(contagem), unidade_nivel: num(contagem) != null ? unidade || null : null,
-      status: 'Aberta', latitude: ponto?.[0] ?? null, longitude: ponto?.[1] ?? null,
-      descricao: desc || null, foto_path: fotoPath,
-    }])
+    const ok = await gravar(async () => {
+      if (foto) await db.fotos.put({ path: fotoPath!, blob: foto, enviada: 0, criada_em: new Date().toISOString() })
+      await salvar('campo', [{
+        id, data_hora: new Date(quando).toISOString(), autor_id: eu.id, talhao_id: talhaoId,
+        ciclo_id: ciclo?.id ?? null, tipo, alvo: alvo.trim() || null, gravidade: grav || null, quem_viu: quem,
+        nivel_encontrado: num(contagem), unidade_nivel: num(contagem) != null ? unidade || null : null,
+        status: 'Aberta', latitude: ponto?.[0] ?? null, longitude: ponto?.[1] ?? null,
+        descricao: desc || null, foto_path: fotoPath,
+      }])
+    })
+    if (!ok) return
     setSalvo(true)
     setTimeout(pronto, 900)
   }
@@ -119,7 +124,7 @@ export function FormCampo({ pronto }: { pronto: () => void }) {
         <Rotulo t="Quando"><input type="datetime-local" required value={quando} onChange={(e) => setQuando(e.target.value)} /></Rotulo>
         <Rotulo t="Observação"><textarea rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} /></Rotulo>
       </details>
-      <button className="primario fixo" disabled={!talhaoId || !tipo || !grav}>Salvar problema</button>
+      <button className="primario fixo" disabled={salvando || !talhaoId || !tipo || !grav}>{salvando ? 'Salvando…' : 'Salvar problema'}</button>
     </form>
   )
 }

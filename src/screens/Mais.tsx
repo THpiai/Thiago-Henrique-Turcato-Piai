@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { db } from '../lib/db'
-import { useLive, useSessao } from '../lib/hooks'
+import { useGravar, useIds, useLive, useSessao } from '../lib/hooks'
 import { CULTURAS, ESTADIOS_CANA, ESTADIOS_GRAOS, STATUS_CICLO, TIPOS_INSUMO, UNIDADES } from '../lib/opcoes'
-import { fmtData, fmtDataHora, fmtN, hojeISO, num, uuid } from '../lib/formato'
+import { fmtData, fmtDataHora, fmtN, hojeISO, num } from '../lib/formato'
 import type { TabelaSync } from '../lib/db'
 import { apagar, restaurar, salvar } from '../lib/sync'
 import { BotaoApagar, mostrarDesfazer } from '../components/Apagar'
@@ -82,11 +82,13 @@ function FormCicloCampos({ talhaoId, talhaoNome, c, pronto }: { talhaoId: string
   const ref = f.cultura ? referenciaCultura(f.cultura, f.safra) : undefined
   const ph = (v?: number | null, u = '') => (v != null ? `(padrão mercado: ${fmtN(v)}${u})` : '')
 
+  const id = useIds()
+  const { salvando, gravar: gravando } = useGravar()
   async function gravar(e: FormEvent) {
     e.preventDefault()
     const status = f.data_colheita ? 'Colhido' : f.status === 'Planejado' && f.data_plantio && f.data_plantio <= hojeISO() ? 'Em andamento' : f.status
-    await salvar('ciclos', [{
-      id: c?.id ?? uuid(), talhao_id: talhaoId, safra: f.safra, cultura: f.cultura, cultivar: f.cultivar || null,
+    const ok = await gravando(() => salvar('ciclos', [{
+      id: c?.id ?? id(), talhao_id: talhaoId, safra: f.safra, cultura: f.cultura, cultivar: f.cultivar || null,
       ciclo_cultivar_dias: num(f.ciclo_cultivar_dias), data_plantio: f.data_plantio || null,
       populacao_plantas_ha: num(f.populacao_plantas_ha), estadio_atual: f.estadio_atual || null,
       data_estadio: f.estadio_atual ? (f.estadio_atual !== c?.estadio_atual ? hojeISO() : f.data_estadio || hojeISO()) : null,
@@ -94,8 +96,8 @@ function FormCicloCampos({ talhaoId, talhaoNome, c, pronto }: { talhaoId: string
       producao: num(f.producao), unidade_producao: num(f.producao) != null ? (f.unidade_producao || (cana ? 't' : 'sc')) : null,
       meta_por_ha: num(f.meta_por_ha), corte_cana: cana ? num(f.corte_cana) : null, atr_kg_t: cana ? num(f.atr_kg_t) : null,
       status, observacao: f.observacao || null,
-    }])
-    pronto()
+    }]), 'Safra salva')
+    if (ok) pronto()
   }
 
   return (
@@ -132,7 +134,7 @@ function FormCicloCampos({ talhaoId, talhaoNome, c, pronto }: { talhaoId: string
         {cana && <Rotulo t="ATR (kg/t)"><input inputMode="decimal" value={f.atr_kg_t} onChange={(e) => s('atr_kg_t')(e.target.value)} /></Rotulo>}
       </fieldset>
       <Rotulo t="Observação"><input value={f.observacao} onChange={(e) => s('observacao')(e.target.value)} /></Rotulo>
-      <button className="primario fixo" disabled={!f.cultura || !f.safra}>Salvar safra</button>
+      <button className="primario fixo" disabled={salvando || !f.cultura || !f.safra}>{salvando ? 'Salvando…' : 'Salvar safra'}</button>
       {c && (
         <section className="zona-perigo">
           <BotaoApagar rotulo="Apagar safra" pergunta={`Apagar ${c.safra} (${c.cultura})?`}
@@ -145,18 +147,21 @@ function FormCicloCampos({ talhaoId, talhaoNome, c, pronto }: { talhaoId: string
 }
 
 export function Insumos({ voltar }: { voltar: () => void }) {
-  const lista = useLive(() => db.insumos.orderBy('nome').toArray()) ?? []
+  const lista = (useLive(() => db.insumos.orderBy('nome').toArray()) ?? []).filter((i) => !i.excluido_em)
   const [edit, setEdit] = useState<Partial<Insumo> | null>(null)
-  if (edit) return <FormInsumo i={edit} pronto={() => setEdit(null)} />
+  const repetidos = grupoRepetidos(lista)
+  if (edit) return <FormInsumo i={edit} pronto={() => setEdit(null)} abrir={setEdit} />
   return (
     <div className="tela">
       <button className="voltar" onClick={voltar}>‹ Mais</button>
       <h1>Insumos</h1>
       <button className="primario" onClick={() => setEdit({})}>+ Insumo</button>
+      {repetidos.length > 0 && <RepetidosInsumo grupos={repetidos} />}
+      <p className="mudo">Toque num insumo para corrigir ou apagar.</p>
       <ul className="lista">
         {lista.map((i) => (
           <li key={i.id} onClick={() => setEdit(i)} className={i.ativo === false ? 'mudo' : ''}>
-            <b>{i.nome}</b><small>{i.classe ?? <span className="falta">sem classe</span>} · {i.tipo} · {i.unidade}{i.ingrediente_ativo ? ` · ${i.ingrediente_ativo}` : ''}{i.estoque_minimo != null ? ` · mínimo ${i.estoque_minimo}` : ''}{i.ativo === false ? ' · inativo' : ''}</small>
+            <b>{i.nome}</b>{i._pendente === 1 && <span className="tag">no celular</span>}<small>{i.classe ?? <span className="falta">sem classe</span>} · {i.tipo} · {i.unidade}{i.ingrediente_ativo ? ` · ${i.ingrediente_ativo}` : ''}{i.estoque_minimo != null ? ` · mínimo ${i.estoque_minimo}` : ''}{i.ativo === false ? ' · inativo' : ''}</small>
           </li>
         ))}
       </ul>
@@ -164,7 +169,48 @@ export function Insumos({ voltar }: { voltar: () => void }) {
   )
 }
 
-function FormInsumo({ i, pronto }: { i: Partial<Insumo>; pronto: () => void }) {
+const chaveNome = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
+
+/** Insumos com o mesmo nome (ex.: salvar várias vezes sem sinal). O primeiro cadastrado fica. */
+function grupoRepetidos(lista: Insumo[]) {
+  const por = new Map<string, Insumo[]>()
+  for (const i of lista) { const k = chaveNome(i.nome); por.set(k, [...(por.get(k) ?? []), i]) }
+  return [...por.values()].filter((g) => g.length > 1)
+}
+
+/** Limpa os repetidos com um toque: fica o que já tem uso (ou o primeiro), o resto vai para a lixeira. */
+function RepetidosInsumo({ grupos }: { grupos: Insumo[][] }) {
+  const usados = useLive(async () => new Set([
+    ...(await db.operacao_produtos.toArray()).map((p) => p.insumo_id),
+    ...(await db.estoque_mov.toArray()).filter((m) => !m.excluido_em).map((m) => m.insumo_id),
+  ])) ?? new Set<string>()
+  const { salvando, gravar } = useGravar()
+  // Só sai o que não tem operação nem movimento de estoque; os com uso ficam para decidir à mão.
+  const sobram = grupos.flatMap((g) => {
+    const fica = g.find((i) => usados.has(i.id)) ?? g.find((i) => i._pendente !== 1) ?? g[0]
+    return g.filter((i) => i !== fica && !usados.has(i.id))
+  })
+  const total = grupos.reduce((s, g) => s + g.length - 1, 0)
+  if (!sobram.length) return null
+  const ids = sobram.map((i) => i.id)
+  return (
+    <Aviso tipo="alerta">
+      <b>{total} insumo(s) repetido(s)</b>: {grupos.map((g) => `${g[0].nome} (${g.length}x)`).join(', ')}.
+      <button type="button" className="secundario" disabled={salvando} onClick={() => void gravar(async () => {
+        await apagar('insumos', ids)
+        mostrarDesfazer(`${ids.length} repetido(s) na lixeira`, () => void restaurar('insumos', ids))
+      })}>{salvando ? 'Limpando…' : `Deixar um só (manda ${ids.length} para a lixeira)`}</button>
+    </Aviso>
+  )
+}
+
+function FormInsumo({ i, pronto, abrir }: { i: Partial<Insumo>; pronto: () => void; abrir: (i: Insumo) => void }) {
+  const id = useIds()
+  const { salvando, gravar: gravando } = useGravar()
+  const outros = (useLive(() => db.insumos.toArray()) ?? []).filter((x) => !x.excluido_em && x.id !== i.id)
+  const usos = useLive(async () => (i.id
+    ? (await db.operacao_produtos.where('insumo_id').equals(i.id).count()) + (await db.estoque_mov.where('insumo_id').equals(i.id).filter((m) => !m.excluido_em).count())
+    : 0), [i.id]) ?? 0
   const [f, setF] = useState<Record<string, string>>(() => ({
     nome: i.nome ?? '', tipo: i.tipo ?? '', unidade: i.unidade ?? '', minimo: String(i.estoque_minimo ?? ''),
     fabricante: i.fabricante ?? '', ingrediente_ativo: i.ingrediente_ativo ?? '', classe: i.classe ?? '',
@@ -184,14 +230,17 @@ function FormInsumo({ i, pronto }: { i: Partial<Insumo>; pronto: () => void }) {
   const vazios = Object.keys(pad).filter((k) => pad[k] && !f[k])
   const usarTudo = () => setF((x) => ({ ...x, ...Object.fromEntries(vazios.map((k) => [k, pad[k]!])) }))
 
+  const mesmoNome = f.nome.trim() ? outros.find((x) => chaveNome(x.nome) === chaveNome(f.nome)) : undefined
+
   async function gravar(e: FormEvent) {
     e.preventDefault()
-    await salvar('insumos', [{
-      id: i.id ?? uuid(), nome: f.nome.trim(), tipo: f.tipo, unidade: f.unidade, estoque_minimo: num(f.minimo), ativo,
+    if (mesmoNome) return
+    const ok = await gravando(() => salvar('insumos', [{
+      id: i.id ?? id(), nome: f.nome.trim(), tipo: f.tipo, unidade: f.unidade, estoque_minimo: num(f.minimo), ativo,
       fabricante: f.fabricante || null, ingrediente_ativo: f.ingrediente_ativo || null, classe: f.classe || null,
       dose_ha_padrao: num(f.dose), preco_unitario: num(f.preco),
-    }])
-    pronto()
+    }]), i.id ? 'Insumo salvo' : 'Insumo cadastrado')
+    if (ok) pronto()
   }
   const Pad = ({ k, txt }: { k: string; txt?: string | null }) =>
     pad[k] && !f[k] ? <button type="button" className="mercado" onClick={() => s(k)(pad[k]!)}>(padrão mercado: {txt ?? pad[k]}) usar</button> : null
@@ -203,6 +252,11 @@ function FormInsumo({ i, pronto }: { i: Partial<Insumo>; pronto: () => void }) {
       <Rotulo t="Nome comercial" dica="Comece a digitar: os produtos mais usados já têm dados de mercado">
         <input required value={f.nome} onChange={(e) => s('nome')(e.target.value)} list="mercado-insumos" autoComplete="off" />
       </Rotulo>
+      {mesmoNome && (
+        <Aviso tipo="alerta">
+          Já existe um insumo com esse nome. <button type="button" className="secundario" onClick={() => abrir(mesmoNome)}>Abrir o que já existe</button>
+        </Aviso>
+      )}
       <datalist id="mercado-insumos">{INSUMOS_MERCADO.map((r) => <option key={r.nome} value={r.nome}>{r.ingrediente_ativo ?? ''}</option>)}</datalist>
       {ref && (
         <div className="ref-mercado">
@@ -241,7 +295,14 @@ function FormInsumo({ i, pronto }: { i: Partial<Insumo>; pronto: () => void }) {
       {/* Insumo novo entra sempre em uso; a caixa só aparece ao editar, para não sumir das operações por um toque sem querer. */}
       {i.id && <label className="check"><input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Em uso <small className="dica">(desmarcado, some da lista ao registrar operação)</small></label>}
       {ref?.preco_url && <p className="fonte">Fonte do preço: <a href={ref.preco_url} target="_blank" rel="noreferrer">{ref.preco_fonte ?? 'link'}</a>{ref.preco_data ? ` (${ref.preco_data})` : ''}. Valores de referência, confira com sua revenda.</p>}
-      <button className="primario fixo" disabled={!f.nome.trim() || !f.tipo || !f.unidade || !f.classe}>Salvar</button>
+      {i.id && (
+        <section className="zona-perigo">
+          <BotaoApagar rotulo=" Apagar insumo" pergunta="Apagar este insumo?"
+            detalhe={usos ? `Ele aparece em ${usos} registro(s). O histórico continua com o nome; ele só sai das listas de escolha. Dá para restaurar na Lixeira.` : 'Sai das listas. Dá para restaurar na Lixeira.'}
+            aoConfirmar={() => void apagar('insumos', [i.id!]).then(() => { mostrarDesfazer('Insumo apagado', () => void restaurar('insumos', [i.id!])); pronto() })} />
+        </section>
+      )}
+      <button className="primario fixo" disabled={salvando || !!mesmoNome || !f.nome.trim() || !f.tipo || !f.unidade || !f.classe}>{salvando ? 'Salvando…' : 'Salvar'}</button>
     </form>
   )
 }
@@ -311,6 +372,7 @@ export function Lixeira({ voltar }: { voltar: () => void }) {
       ...fora(await db.campo.toArray()).filter((c) => meu(c.autor_id)).map((c) => ({ id: c.id, tabela: 'campo' as const, tipo: 'Problema', titulo: `${c.tipo}${c.alvo ? ' · ' + c.alvo : ''}`, detalhe: `${nomeT(c.talhao_id)} · ${fmtDataHora(c.data_hora)}`, quando: c.excluido_em! })),
       ...fora(await db.chuva.toArray()).filter((c) => meu(c.autor_id)).map((c) => ({ id: c.id, tabela: 'chuva' as const, tipo: 'Chuva', titulo: `${fmtN(Number(c.milimetros), 1)} mm`, detalhe: `${c.talhao_id ? nomeT(c.talhao_id) : `Sede ${sedes.find((s) => s.id === c.sede_id)?.nome ?? ''}`} · ${fmtData(c.data)}`, quando: c.excluido_em! })),
       ...fora(await db.estoque_mov.toArray()).filter((m) => meu(m.autor_id)).map((m) => ({ id: m.id, tabela: 'estoque_mov' as const, tipo: 'Estoque', titulo: `${m.movimento} · ${insumos.find((i) => i.id === m.insumo_id)?.nome ?? ''}`, detalhe: `${fmtN(Number(m.quantidade), 2)} · ${fmtData(m.data)}`, quando: m.excluido_em! })),
+      ...(gestor ? fora(insumos).map((i) => ({ id: i.id, tabela: 'insumos' as const, tipo: 'Insumo', titulo: i.nome, detalhe: `${i.tipo} · ${i.unidade}`, quando: i.excluido_em! })) : []),
       ...(gestor ? fora(await db.ciclos.toArray()).map((c) => ({ id: c.id, tabela: 'ciclos' as const, tipo: 'Safra', titulo: `${c.safra} · ${c.cultura}`, detalhe: nomeT(c.talhao_id), quando: c.excluido_em! })) : []),
     ].sort((a, b) => b.quando.localeCompare(a.quando))
   }, [gestor, eu.id])

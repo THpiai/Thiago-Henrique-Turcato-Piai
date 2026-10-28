@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Operacao, Talhao } from '../lib/tipos'
 import { lotesAbertos, type LoteAberto } from '../lib/operacoes'
 import { TIPOS_COLHEITA } from '../lib/safra'
-import { useSessao } from '../lib/hooks'
+import { useGravar, useSessao } from '../lib/hooks'
 import { agoraLocal, fmtData, fmtN, num } from '../lib/formato'
 import { fecharOperacao } from '../lib/sync'
 
@@ -50,8 +50,12 @@ function Fechar({ l, nome, pronto }: { l: LoteAberto; nome: (id: string) => stri
   const [prods, setProds] = useState<Record<string, string>>({})
   const colheita = TIPOS_COLHEITA.includes(l.tipo)
   const antes = new Date(fim).getTime() < new Date(l.inicio).getTime()
+  const { salvando, gravar } = useGravar()
   async function confirmar() {
     if (antes) return
+    await gravar(() => fechar())
+  }
+  async function fechar() {
     const data_fim = new Date(fim).toISOString()
     for (const o of l.ops) {
       const area = num(areas[o.id]) ?? o.area_ha ?? null
@@ -85,7 +89,7 @@ function Fechar({ l, nome, pronto }: { l: LoteAberto; nome: (id: string) => stri
       ))}
       <small className="dica">Se a área mudou, os insumos e o custo são corrigidos.</small>
       <div className="acoes">
-        <button className="primario" onClick={() => void confirmar()} disabled={antes}>Confirmar término</button>
+        <button className="primario" onClick={() => void confirmar()} disabled={antes || salvando}>{salvando ? 'Salvando…' : 'Confirmar término'}</button>
         <button className="secundario" onClick={pronto}>Cancelar</button>
       </div>
     </div>
