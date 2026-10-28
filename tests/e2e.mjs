@@ -62,8 +62,8 @@ const ctx = await nav.newContext({
   viewport: { width: 400, height: 860 }, deviceScaleFactor: 2, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo',
   geolocation: { latitude: -17.796, longitude: -50.896, accuracy: 8 }, permissions: ['geolocation'],
 })
-await ctx.route(/arcgisonline|openstreetmap/, (r) => r.abort())
-await ctx.route(/supabase\.co/, async (r) => {
+// Supabase simulado; vale para o contexto de computador e o de celular.
+const supabaseSimulado = async (r) => {
   if (semSinal) return r.abort('internetdisconnected')
   const req = r.request(), url = new URL(req.url())
   const json = (corpo, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corpo) })
@@ -95,7 +95,9 @@ await ctx.route(/supabase\.co/, async (r) => {
   const linhas = banco[tabela] ?? []
   if ((req.headers()['accept'] ?? '').includes('vnd.pgrst.object')) return json(linhas[0] ?? null)
   return json(linhas)
-})
+}
+await ctx.route(/arcgisonline|openstreetmap/, (r) => r.abort())
+await ctx.route(/supabase\.co/, supabaseSimulado)
 
 console.log('navegador ok')
 const pagina = await ctx.newPage()
@@ -281,7 +283,7 @@ try {
   await foto('4-inicio-depois')
   await pagina.getByRole('button', { name: /Mais/ }).click()
   await pagina.getByRole('button', { name: /Mapa dos talhões/ }).click()
-  await pagina.locator('.leaflet-interactive').first().waitFor()
+  await pagina.waitForFunction(() => document.querySelectorAll('path.leaflet-interactive').length >= 3, null, { timeout: 10000 }).catch(() => {})
   ok(await pagina.locator('path.leaflet-interactive').count() >= 3, 'mapa desenha os talhões')
   await foto('5-mapa')
   await pagina.getByRole('button', { name: /Estoque/ }).click()
@@ -469,8 +471,9 @@ try {
   ok(olimpos === 1, 'vários toques em Salvar sem sinal gravam um insumo só')
 
   // Repetidos que já existiam: um toque deixa um só e manda o resto para a lixeira.
-  await pagina.getByRole('button', { name: '‹ Mais' }).click()
-  await pagina.locator('.secundarias').getByRole('button', { name: /Insumos/ }).click()
+  // (Os toques que sobram no Salvar podem cair na lista e abrir um insumo: volta para a lista.)
+  await pagina.waitForTimeout(300)
+  if (await pagina.getByRole('button', { name: '‹ Insumos' }).isVisible()) await pagina.getByRole('button', { name: '‹ Insumos' }).click()
   await espera('2 insumo(s) repetido(s)')
   await foto('16-insumos-repetidos')
   await pagina.getByRole('button', { name: /Deixar um só/ }).click()
@@ -492,6 +495,67 @@ try {
   for (let i = 0; i < 50 && recebidos.filter((r) => r.tabela === 'insumos' && r.op === 'update' && r.linhas[0].excluido_em).length < 3; i++) await pagina.waitForTimeout(200)
   ok(recebidos.filter((r) => r.tabela === 'insumos' && r.op === 'update' && r.linhas[0].excluido_em).length === 3, 'ao voltar o sinal, os apagados sobem para a lixeira do servidor')
   ok(recebidos.filter((r) => r.tabela === 'insumos' && !r.op).flatMap((r) => r.linhas).filter((l) => /olimpo/i.test(l.nome)).length === 1, 'servidor recebe o insumo uma vez só')
+
+  // Celular de verdade (toque, zoom do navegador): o Mapa não pode virar "versão de computador" ao criar talhão.
+  const cel = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo',
+    geolocation: { latitude: -17.79, longitude: -50.91, accuracy: 6 }, permissions: ['geolocation'],
+  })
+  await cel.route(/arcgisonline|openstreetmap/, (r) => r.abort())
+  await cel.route(/supabase\.co/, supabaseSimulado)
+  const tel = await cel.newPage()
+  tel.on('pageerror', (e) => erros.push(String(e)))
+  const fotoCel = (n) => tel.screenshot({ path: `${SAIDA}/${n}.png` })
+  const larguraTela = () => tel.evaluate(() => document.documentElement.scrollWidth)
+  await tel.goto(BASE)
+  await tel.getByLabel('E-mail').fill(eu.email)
+  await tel.getByLabel('Senha').fill('senha-de-teste')
+  await tel.getByRole('button', { name: 'Entrar' }).tap()
+  await tel.getByText('Olá, Thiago').first().waitFor()
+  await tel.getByRole('button', { name: /Mais/ }).tap()
+  await tel.getByRole('button', { name: /Mapa dos talhões/ }).tap()
+  await tel.locator('.leaflet-interactive').first().waitFor()
+  await tel.waitForTimeout(600)
+  await fotoCel('celular-1-mapa')
+  await tel.getByRole('button', { name: /Novo talhão/ }).tap()
+  await tel.waitForTimeout(400)
+  ok(await larguraTela() === 390, `celular: criar talhão não alarga a tela (${await larguraTela()} px)`)
+  ok(await tel.locator('[data-testid="mapa"].leaflet-container').count() === 1, 'celular: mapa mantém o modo de toque do Leaflet ao editar')
+  for (const [x, y] of [[110, 170], [280, 180], [290, 360], [120, 350]]) { await tel.touchscreen.tap(x, y); await tel.waitForTimeout(250) }
+  ok(await tel.locator('.vertice').count() === 4, 'celular: 4 toques no mapa marcam 4 pontos')
+  ok(await larguraTela() === 390, 'celular: tela continua do tamanho do celular depois dos toques')
+  await fotoCel('celular-2-desenhando')
+  await tel.getByRole('button', { name: /Concluir/ }).tap()
+  await tel.getByLabel('Nome do talhão').fill('T05 Celular')
+  await fotoCel('celular-3-nome')
+  await tel.getByRole('button', { name: 'Salvar talhão' }).tap()
+  await tel.getByText('Talhão salvo').first().waitFor()
+  for (let i = 0; i < 50 && !banco.talhoes.some((t) => t.nome === 'T05 Celular'); i++) await tel.waitForTimeout(200)
+  const t5 = banco.talhoes.find((t) => t.nome === 'T05 Celular')
+  ok(t5 && t5.contorno.coordinates[0].length === 5 && t5.area_ha > 0, `celular: talhão desenhado por toque chega ao servidor (${t5?.area_ha} ha)`)
+
+  // Andando a divisa com o GPS: um ponto a cada 10 m.
+  await tel.getByRole('button', { name: /Novo talhão/ }).tap()
+  await tel.getByRole('button', { name: /Andar/ }).tap()
+  const passo = 0.0002 // ~22 m: quadrado de ~66 m de lado
+  for (const [dl, dg] of [[0, 0], [0, 1], [0, 2], [0, 3], [1, 3], [2, 3], [3, 3], [3, 2], [3, 1], [3, 0], [2, 0], [1, 0]]) {
+    await cel.setGeolocation({ latitude: -17.79 + dl * passo, longitude: -50.91 + dg * passo, accuracy: 6 })
+    await tel.waitForTimeout(250)
+  }
+  const nAndando = await tel.locator('.vertice').count()
+  ok(nAndando >= 10, `celular: andar com o GPS marca a divisa sozinho (${nAndando} pontos)`)
+  await fotoCel('celular-4-andando')
+  await tel.getByRole('button', { name: /Parar/ }).tap()
+  await tel.getByRole('button', { name: /Concluir/ }).tap()
+  await tel.getByLabel('Nome do talhão').fill('T06 Andando')
+  await tel.getByRole('button', { name: 'Salvar talhão' }).tap()
+  for (let i = 0; i < 50 && !banco.talhoes.some((t) => t.nome === 'T06 Andando'); i++) await tel.waitForTimeout(200)
+  const t6 = banco.talhoes.find((t) => t.nome === 'T06 Andando')
+  ok(t6 && t6.area_ha > 0.3 && t6.area_ha < 0.6, `celular: talhão andado com GPS chega ao servidor (${t6?.area_ha} ha)`)
+  await tel.locator('.leaflet-interactive').first().waitFor()
+  await tel.waitForTimeout(400)
+  await fotoCel('celular-5-salvos')
+  await cel.close()
 
   ok(erros.length === 0, 'sem erros de JavaScript' + (erros.length ? ': ' + erros.join(' | ') : ''))
   console.log('\nTODOS OS TESTES PASSARAM')
