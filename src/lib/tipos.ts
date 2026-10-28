@@ -11,7 +11,7 @@ export type Pessoa = { id: string; nome: string; email: string; perfil: Perfil; 
 export type Talhao = TalhaoGeo & Local & {
   nome: string; area_ha: number; pluviometro: boolean; ativo: boolean; observacao?: string | null
 }
-export type Insumo = Local & {
+export type Insumo = Local & Apagavel & {
   id: string; nome: string; tipo: string; unidade: string; estoque_minimo?: number | null; ativo: boolean
   fabricante?: string | null; ingrediente_ativo?: string | null; classe?: string | null
   dose_ha_padrao?: number | null; preco_unitario?: number | null

@@ -1,10 +1,12 @@
 import { liveQuery } from 'dexie'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { db } from './db'
 import type { Dados } from './painel'
 import { vivo, type Pessoa } from './tipos'
 import { derivarCiclos } from './safra'
 import { talhaoDoPonto, type Ponto } from './geo'
+import { uuid } from './formato'
+import { mostrarAviso } from '../components/Apagar'
 
 /** Lê do banco do celular e redesenha sozinho quando algo muda. */
 export function useLive<T>(consulta: () => Promise<T>, deps: unknown[] = []): T | undefined {
@@ -15,6 +17,37 @@ export function useLive<T>(consulta: () => Promise<T>, deps: unknown[] = []): T 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
   return v
+}
+
+/** Ids que nascem quando o formulário abre e não mudam: salvar de novo grava por cima, nunca duplica. */
+export function useIds() {
+  const ids = useRef(new Map<string, string>())
+  return (chave = '') => {
+    let id = ids.current.get(chave)
+    if (!id) ids.current.set(chave, (id = uuid()))
+    return id
+  }
+}
+
+/** Salvar com um toque só: enquanto grava, o botão fica "Salvando…" e novos toques são ignorados.
+ *  Ao terminar, avisa na hora se ficou no celular (sem sinal) ou se já está subindo. */
+export function useGravar() {
+  const rodando = useRef(false)
+  const [salvando, setSalvando] = useState(false)
+  async function gravar(fn: () => Promise<unknown>, aviso?: string) {
+    if (rodando.current) return false
+    rodando.current = true
+    setSalvando(true)
+    try {
+      await fn()
+      if (aviso) mostrarAviso(`${aviso}${typeof navigator !== 'undefined' && !navigator.onLine ? ' no celular. Sobe sozinho quando tiver sinal.' : '.'}`)
+      return true
+    } finally {
+      rodando.current = false
+      setSalvando(false)
+    }
+  }
+  return { salvando, gravar }
 }
 
 export function useDados(): Dados | undefined {
