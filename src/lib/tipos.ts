@@ -23,6 +23,10 @@ export type Ciclo = Local & Apagavel & {
   data_colheita?: string | null; producao?: number | null; unidade_producao?: 'sc' | 't' | null
   meta_por_ha?: number | null; corte_cana?: number | null; atr_kg_t?: number | null
   status: 'Planejado' | 'Em andamento' | 'Colhido'; observacao?: string | null
+  /** Área plantada nesta safra, quando diferente da área do talhão (safras passadas). */
+  area_ha?: number | null
+  /** Custo de insumos por ha informado à mão (safras passadas, sem as aplicações no app). */
+  custo_insumos_ha?: number | null
 }
 export type Operacao = Local & Apagavel & {
   id: string; data_hora: string; autor_id: string; talhao_id: string; ciclo_id?: string | null; tipo: string

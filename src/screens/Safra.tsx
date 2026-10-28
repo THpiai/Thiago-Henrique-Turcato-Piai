@@ -10,6 +10,10 @@ import { Aviso } from '../components/ui'
 import { Estadio } from './Talhao'
 import { FiltroTalhoes } from '../components/FiltroTalhoes'
 import { naSelecao, useSelecao } from '../lib/filtro'
+import { FiltroPeriodo } from '../components/FiltroPeriodo'
+import { Rendimento } from '../components/Rendimento'
+import { Icone } from '../components/Icone'
+import { useSessao } from '../lib/hooks'
 
 const SATELITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
 const COR = { bom: '#3f9a4a', atencao: '#e0a526', critico: '#d6452f', 'sem-dados': '#8a8270' } as const
@@ -18,10 +22,15 @@ const ORDEM = { critico: 0, atencao: 1, bom: 2, 'sem-dados': 3 } as const
 
 function lerSafra(): string | null { try { return localStorage.getItem('fdm-safra') } catch { return null } }
 function gravarSafra(s: string) { try { localStorage.setItem('fdm-safra', s) } catch { /* sem armazenamento */ } }
+type Vista = 'situacao' | 'rendimento'
+function lerVista(): Vista { try { return localStorage.getItem('piai-safra-vista') === 'rendimento' ? 'rendimento' : 'situacao' } catch { return 'situacao' } }
+function gravarVista(v: Vista) { try { localStorage.setItem('piai-safra-vista', v) } catch { /* sem armazenamento */ } }
 
 /** A safra como conjunto: mapa com a cor de cada talhão e a lista com o ponto de atenção de cada um. */
 export function Safra({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; ir: (tela: string) => void }) {
   const d = useDados()
+  const { gestor } = useSessao()
+  const [vista, setVista] = useState<Vista>(lerVista)
   const safras = useMemo(() => (d ? listaSafras(d.ciclos) : []), [d])
   const [escolhida, setEscolhida] = useState<string | null>(lerSafra)
   const atual = safras.find((s) => s.nome === escolhida)?.nome ?? safras[0]?.nome ?? null
@@ -49,7 +58,7 @@ export function Safra({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; 
   const conta = (n: keyof typeof COR) => daSafra.filter((r) => r.estado.nivel === n).length
 
   return (
-    <div className="tela tela-safra">
+    <div className={vista === 'rendimento' ? 'tela tela-safra vista-rendimento' : 'tela tela-safra'}>
       <h1>{atual ?? 'Safra'}</h1>
       {safras.length > 1 && (
         <div className="filtro-safras" role="tablist" aria-label="Safra">
@@ -62,10 +71,23 @@ export function Safra({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; 
         </div>
       )}
       {!atual ? (
-        <Aviso>Nenhuma safra ainda. Ela começa sozinha quando o Plantio é registrado em um talhão (Registrar › Operação).</Aviso>
+        <Aviso>Nenhuma safra ainda. Ela começa sozinha quando o Plantio é registrado em um talhão (Registrar › Operação).{gestor && <> Para comparar com anos anteriores, <button className="link" onClick={() => ir('historico')}>lance as safras passadas</button>.</>}</Aviso>
       ) : (
         <>
-          {resumos.length > 1 && <FiltroTalhoes resumos={resumos} d={d} />}
+          <div className="vistas" role="tablist" aria-label="Ver">
+            {([['situacao', 'Situação', 'mapa'], ['rendimento', 'Rendimento', 'grafico']] as const).map(([v, t, i]) => (
+              <button key={v} role="tab" aria-selected={vista === v} className={vista === v ? 'on' : ''} onClick={() => { setVista(v); gravarVista(v) }}>
+                <Icone n={i} t={18} />{t}
+              </button>
+            ))}
+          </div>
+          <div className="filtros">
+            {resumos.length > 1 && <FiltroTalhoes resumos={resumos} d={d} />}
+            {vista === 'rendimento' && <FiltroPeriodo />}
+          </div>
+          {vista === 'rendimento' ? (
+            <Rendimento d={d} safra={atual} talhoes={sel} abrirTalhao={abrirTalhao} lancarHistorico={gestor ? () => ir('historico') : undefined} />
+          ) : <>
           {!daSafra.length && <Aviso>Nenhum talhão escolhido no filtro está nesta safra.</Aviso>}
           <p className="mudo resumo-safra">
             {daSafra.length} talhões{daSafra.length < todaSafra.length ? ` de ${todaSafra.length}` : ''} · {fmtN(area, 1)} ha{porCultura.size > 1 || atual.startsWith('Safrinha') ? ' · ' + [...porCultura].map(([c, ha]) => `${c} ${fmtN(ha, 1)} ha`).join(' · ') : ''}
@@ -94,6 +116,7 @@ export function Safra({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; 
           {d.talhoes.length > todaSafra.length && (
             <p className="mudo">{d.talhoes.length - todaSafra.length} talhão(ões) fora desta safra. <button className="link" onClick={() => ir('mapa')}>Ver todos no mapa</button></p>
           )}
+          </>}
         </>
       )}
     </div>

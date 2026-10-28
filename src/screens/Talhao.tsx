@@ -17,6 +17,10 @@ import { EmAndamento } from '../components/EmAndamento'
 import { condicaoAplicacao, duracaoDias, fichaSafra, operacoesDaSafra, TIPOS_APLICACAO } from '../lib/operacoes'
 import type { OperacaoProduto } from '../lib/tipos'
 import { diasDesde } from '../lib/formato'
+import { FiltroPeriodo } from '../components/FiltroPeriodo'
+import { faixaDoPeriodo, naFaixa, rotuloPeriodo, usePeriodo } from '../lib/periodo'
+import { atividade, opsNaFaixa } from '../lib/rendimento'
+import { chuvaEntre } from '../lib/painel'
 
 type Evento = { id: string; quando: string; titulo: string; detalhe?: string; tipo: 'op' | 'campo' | 'chuva'; tabela: TabelaSync; autor?: string | null; pendente?: boolean }
 
@@ -28,7 +32,9 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
   const insumos = useLive(() => db.insumos.toArray()) ?? []
   const t = d?.talhoes.find((x) => x.id === id)
   const r = useMemo(() => (d && t ? resumoTalhao(t, d) : null), [d, t])
+  const [periodo] = usePeriodo()
   if (!d || !t || !r) return <p className="vazio">Carregando…</p>
+  const faixa = faixaDoPeriodo(periodo)
   const nomeInsumo = (i: string) => insumos.find((x) => x.id === i)?.nome ?? 'insumo'
   const sedeId = sedeDoTalhao(t, d.sedes)?.id
 
@@ -47,7 +53,10 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
       id: c.id, quando: c.data, tipo: 'chuva' as const, tabela: 'chuva' as const, autor: c.autor_id, pendente: c._pendente === 1,
       titulo: `Chuva ${fmtN(Number(c.milimetros), 1)} mm${c.talhao_id ? '' : ` · pluviômetro da sede ${d.sedes.find((s) => s.id === c.sede_id)?.nome ?? ''}`}`,
     })),
-  ].sort((a, b) => b.quando.localeCompare(a.quando)).slice(0, 60)
+  ].filter((e) => naFaixa(e.quando.slice(0, 10), faixa)).sort((a, b) => b.quando.localeCompare(a.quando)).slice(0, faixa ? 300 : 60)
+  // Resumo do período: o que foi feito, quanto de insumo entrou e quanto choveu.
+  const noPeriodo = faixa ? atividade(opsNaFaixa(d.operacoes.filter((o) => o.talhao_id === id), faixa), d) : null
+  const chuvaNoPeriodo = faixa ? chuvaEntre(id, d.chuva, (dia) => dia >= faixa.de && dia <= faixa.ate, sedeId) : null
 
   const ciclos = d.ciclos.filter((c) => c.talhao_id === id).sort((a, b) => (b.data_plantio ?? b.safra).localeCompare(a.data_plantio ?? a.safra))
 
@@ -105,7 +114,13 @@ export function TalhaoDetalhe({ id, voltar, editarCiclo }: { id: string; voltar:
 
       <section>
         <h2>Linha do tempo</h2>
-        {eventos.length === 0 ? <p className="mudo">Nada registrado ainda.</p> : (
+        <div className="filtros"><FiltroPeriodo padrao="Últimos registros" /></div>
+        {noPeriodo && (
+          <p className="mudo resumo-periodo">
+            {rotuloPeriodo(periodo)}: {noPeriodo.operacoes} operações · {fmtN(noPeriodo.ha, 0)} ha · {noPeriodo.aplicacoes} pulverizações · R$ {fmtN(noPeriodo.custo, 0)} em insumos{noPeriodo.custoEstimado ? ' (parte estimada)' : ''} · {fmtN(chuvaNoPeriodo, 0)} mm de chuva
+          </p>
+        )}
+        {eventos.length === 0 ? <p className="mudo">{faixa ? 'Nada registrado no período.' : 'Nada registrado ainda.'}</p> : (
           <ol className="tempo">
             {eventos.map((e) => (
               <li key={e.id} className={e.tipo}>
@@ -209,7 +224,7 @@ function FichaTalhao({ ciclos, ops, area, abrir }: { ciclos: Ciclo[]; ops: Opera
               <dt>Plantio</dt><dd>{f.plantio ? periodo(f.plantio) : fmtData(f.ciclo.data_plantio)}</dd>
               <dt>Colheita</dt><dd>{f.colheita ? periodo(f.colheita) : f.ciclo.data_colheita ? fmtData(f.ciclo.data_colheita) : '–'}</dd>
               <dt>Ciclo real</dt><dd>{f.diasCiclo != null ? <><b>{f.diasCiclo} dias</b>{f.cicloCompleto ? ' do plantio à colheita' : ' até hoje'}{f.ciclo.ciclo_cultivar_dias ? ` (cultivar: ${f.ciclo.ciclo_cultivar_dias})` : ''}</> : '–'}</dd>
-              <dt>Produtividade</dt><dd>{f.ciclo.producao != null && area > 0 ? <><b>{fmtN(f.ciclo.producao / area, 1)} {f.ciclo.unidade_producao}/ha</b>{f.ciclo.meta_por_ha ? ` · meta ${fmtN(f.ciclo.meta_por_ha, 1)}` : ''}</> : '–'}</dd>
+              <dt>Produtividade</dt><dd>{f.ciclo.producao != null && Number(f.ciclo.area_ha ?? area) > 0 ? <><b>{fmtN(f.ciclo.producao / Number(f.ciclo.area_ha ?? area), 1)} {f.ciclo.unidade_producao}/ha</b>{f.ciclo.meta_por_ha ? ` · meta ${fmtN(f.ciclo.meta_por_ha, 1)}` : ''}</> : '–'}</dd>
             </dl>
           </li>
         ))}

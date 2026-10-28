@@ -24,6 +24,8 @@ const CAMINHOS: Record<string, string> = {
   seta: 'M9 6l6 6-6 6',
   voltar: 'M15 6l-6 6 6 6',
   enquadrar: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  calendario: 'M4.5 6h15v14h-15zM4.5 10h15M8.5 3.5v4M15.5 3.5v4',
+  grafico: 'M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3',
 }
 
 export function Icone({ n, t = 22, className }: { n: keyof typeof CAMINHOS | string; t?: number; className?: string }) {

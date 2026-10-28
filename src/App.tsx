@@ -17,6 +17,7 @@ import { FormChuva } from './screens/FormChuva'
 import { Estoque } from './screens/Estoque'
 import { Mapa } from './screens/Mapa'
 import { Safra } from './screens/Safra'
+import { Historico } from './screens/Historico'
 import { Equipe, Fila, FormCiclo, Insumos, Lixeira, Mais, Safras } from './screens/Mais'
 import { BarraDesfazer, BarraErro } from './components/Apagar'
 
@@ -102,6 +103,7 @@ function Casca() {
       case 'mais': return <Mais ir={ir} />
       case 'safras': return <Safras voltar={voltar} abrir={editarCiclo} />
       case 'ciclo': return <FormCiclo key={`${a}/${b}`} talhaoId={a} cicloId={b} pronto={voltar} />
+      case 'historico': return gestor ? <Historico voltar={voltar} /> : <Mais ir={ir} />
       case 'insumos': return <Insumos voltar={voltar} />
       case 'equipe': return <Equipe voltar={voltar} />
       case 'fila': return <Fila voltar={voltar} />
@@ -111,7 +113,7 @@ function Casca() {
   })()
 
   const aba = ['registrar', 'operacao', 'campo', 'chuva'].includes(tela) ? 'registrar'
-    : ['mais', 'safras', 'ciclo', 'insumos', 'equipe', 'fila', 'lixeira', 'mapa'].includes(tela) ? 'mais'
+    : ['mais', 'safras', 'ciclo', 'historico', 'insumos', 'equipe', 'fila', 'lixeira', 'mapa'].includes(tela) ? 'mais'
       : tela === 'talhao' ? 'inicio' : tela
   const abas = [
     { id: 'inicio', t: 'Início', i: 'inicio' }, { id: 'safra', t: 'Safra', i: 'folha' },
@@ -139,7 +141,7 @@ function Casca() {
         <div className="secundarias">
           <small>Cadastros</small>
           {extras.map((x) => (
-            <button key={x.id} className={tela === x.id || (x.id === 'safras' && tela === 'ciclo') ? 'on' : ''} onClick={() => ir(x.id)}>
+            <button key={x.id} className={tela === x.id || (x.id === 'safras' && (tela === 'ciclo' || tela === 'historico')) ? 'on' : ''} onClick={() => ir(x.id)}>
               <Icone n={x.i} t={20} />{x.t}
             </button>
           ))}
