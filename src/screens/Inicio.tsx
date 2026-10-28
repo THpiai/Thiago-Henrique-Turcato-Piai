@@ -8,6 +8,11 @@ import { Aviso } from '../components/ui'
 import { Icone } from '../components/Icone'
 import { FiltroTalhoes, useFiltrados } from '../components/FiltroTalhoes'
 import { EmAndamento } from '../components/EmAndamento'
+import { FiltroPeriodo } from '../components/FiltroPeriodo'
+import { faixaDoPeriodo, rotuloPeriodo, usePeriodo } from '../lib/periodo'
+import { atividade, opsNaFaixa } from '../lib/rendimento'
+import { chuvaEntre, sedeDoTalhao } from '../lib/painel'
+import { hojeISO } from '../lib/formato'
 
 export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void; ir: (tela: string) => void }) {
   const d = useDados()
@@ -15,7 +20,17 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
   const todos = useMemo(() => (d ? d.talhoes.map((t) => resumoTalhao(t, d)) : []), [d])
   // Filtro de talhões: números, grade e Atenção mostram só os talhões escolhidos.
   const resumos = useFiltrados(todos)
+  const [periodo] = usePeriodo()
   if (!d) return <p className="vazio">Carregando…</p>
+  // Período: "safra inteira" = as operações da safra atual de cada talhão; senão, as datas escolhidas.
+  const faixa = faixaDoPeriodo(periodo)
+  const opsPeriodo = faixa ? opsNaFaixa(d.operacoes.filter((o) => resumos.some((r) => r.talhao.id === o.talhao_id)), faixa) : resumos.flatMap((r) => r.operacoesCiclo)
+  const feito = atividade(opsPeriodo, d)
+  const chuvas = resumos.flatMap((r) => {
+    const f = faixa ?? (r.ciclo?.data_plantio && r.ciclo.status === 'Em andamento' ? { de: r.ciclo.data_plantio, ate: hojeISO() } : null)
+    return f ? [chuvaEntre(r.talhao.id, d.chuva, (dia) => dia >= f.de && dia <= f.ate, sedeDoTalhao(r.talhao, d.sedes)?.id)] : []
+  })
+  const chuvaMedia = chuvas.length ? chuvas.reduce((a, b) => a + b, 0) / chuvas.length : null
 
   const areaTotal = resumos.reduce((s, r) => s + Number(r.talhao.area_ha), 0)
   const emCampo = resumos.filter((r) => r.ciclo?.status === 'Em andamento')
@@ -40,7 +55,10 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
         </Aviso>
       )}
 
-      {todos.length > 1 && <FiltroTalhoes resumos={todos} d={d} />}
+      <div className="filtros">
+        {todos.length > 1 && <FiltroTalhoes resumos={todos} d={d} />}
+        {d.talhoes.length > 0 && <FiltroPeriodo />}
+      </div>
 
       <section className="kpis">
         <div><b>{fmtN(areaTotal, 1)}</b><span>ha em {resumos.length} talhões{filtrando ? ' escolhidos' : ''}</span></div>
@@ -48,6 +66,18 @@ export function Inicio({ abrirTalhao, ir }: { abrirTalhao: (id: string) => void;
         <div className={criticos ? 'alerta' : ''}><b>{abertos}</b><span>problemas abertos{criticos ? ` · ${criticos} talhão(ões) crítico(s)` : ''}</span></div>
         <div><b>{fmtN(chuva7, 0)} mm</b><span>chuva em 7 dias</span></div>
       </section>
+
+      {d.talhoes.length > 0 && (
+        <section className="periodo-inicio">
+          <h2>{faixa ? rotuloPeriodo(periodo) : 'Nesta safra'}</h2>
+          <div className="kpis kpis-mini">
+            <div><b>{feito.operacoes}</b><span>operações · {fmtN(feito.ha, 0)} ha</span></div>
+            <div><b>{feito.aplicacoes}</b><span>pulverizações</span></div>
+            <div><b>R$ {fmtN(feito.custo, 0)}</b><span>em insumos{feito.custoEstimado ? ' (parte estimada)' : ''}</span></div>
+            <div><b>{chuvaMedia != null ? `${fmtN(chuvaMedia, 0)} mm` : '–'}</b><span>chuva média{faixa ? '' : ' desde o plantio'}</span></div>
+          </div>
+        </section>
+      )}
 
       <div className="layout-inicio">
         <div>

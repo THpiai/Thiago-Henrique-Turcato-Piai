@@ -44,13 +44,17 @@ export function cicloAtual(talhaoId: string, ciclos: Ciclo[]): Ciclo | undefined
  * Com talhaoId nulo, é a chuva da sede (pluviômetro da sede, senão estimativa).
  */
 export function chuvaPeriodo(talhaoId: string | null, chuva: Chuva[], dias: number, sedeId?: string): number {
+  return chuvaEntre(talhaoId, chuva, (dia) => { const d = diasDesde(dia); return d != null && d >= 0 && d < dias }, sedeId)
+}
+
+/** Chuva do talhão nos dias que `vale` aceita (mesma ordem de confiança de chuvaPeriodo). */
+export function chuvaEntre(talhaoId: string | null, chuva: Chuva[], vale: (dia: string) => boolean, sedeId?: string): number {
   const doTalhao = new Map<string, number>()
   const daSede = new Map<string, number>()
   const estimada = new Map<string, number>()
   const soma = (m: Map<string, number>, dia: string, mm: number) => m.set(dia, (m.get(dia) ?? 0) + mm)
   for (const c of chuva) {
-    const d = diasDesde(c.data)
-    if (d == null || d < 0 || d >= dias) continue
+    if (!vale(c.data)) continue
     const mm = Number(c.milimetros)
     const mesmaSede = !c.sede_id || !sedeId || c.sede_id === sedeId
     if (c.fonte === 'Pluviômetro') {
@@ -134,7 +138,8 @@ export function resumoTalhao(t: Talhao, d: Dados): Resumo {
     if (preco) { custoTotal += qtd * preco.preco; temCusto = true; custoEstimado ||= preco.estimado }
   }
   const area = Number(t.area_ha)
-  const produtividade = ciclo?.producao != null && area > 0 ? ciclo.producao / area : null
+  const areaCiclo = Number(ciclo?.area_ha ?? area)
+  const produtividade = ciclo?.producao != null && areaCiclo > 0 ? ciclo.producao / areaCiclo : null
 
   const chuva7 = chuvaPeriodo(t.id, d.chuva, 7, sede?.id)
   const chuva30 = chuvaPeriodo(t.id, d.chuva, 30, sede?.id)

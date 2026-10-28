@@ -16,6 +16,7 @@ const REGRAS: Partial<Record<TabelaSync, Regras>> = {
     numeros: {
       producao: [0, 1e9, 'Produção'], meta_por_ha: [0, 1e6, 'Meta por ha'], populacao_plantas_ha: [0, 5e6, 'População'],
       ciclo_cultivar_dias: [0, 2000, 'Ciclo da cultivar'], corte_cana: [0, 30, 'Corte'], atr_kg_t: [0, 300, 'ATR'],
+      area_ha: [0.01, 5000, 'Área (ha)'], custo_insumos_ha: [0, 100000, 'Custo de insumos (R$/ha)'],
     },
     textos: { safra: 40, cultivar: 80, observacao: 2000 },
   },

@@ -2,11 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { db, gravarMeta, TABELAS_CADASTRO, TABELAS_REGISTRO, type TabelaSync } from './db'
 import type { Ciclo, Operacao, OperacaoProduto } from './tipos'
 import { checar } from './validar'
+import { DIAS_NO_CELULAR } from './periodo'
 
 type Cliente = Pick<SupabaseClient, 'from'> & Partial<Pick<SupabaseClient, 'storage'>>
 type Linha = Record<string, unknown> & { id: string }
 
-const DIAS_HISTORICO = 180
+const DIAS_HISTORICO = DIAS_NO_CELULAR
 const semLocais = (l: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(l).filter(([k]) => !k.startsWith('_')))
 

@@ -20,6 +20,7 @@ export function Mais({ ir }: { ir: (tela: string) => void }) {
       <div className="menu">
         <button onClick={() => ir('mapa')}><span className="icone"><Icone n="mapa" t={26} /></span><span><b>Mapa dos talhões</b><small>Desenhar e ajustar os contornos</small></span></button>
         {gestor && <button onClick={() => ir('safras')}><span className="icone"><Icone n="folha" t={26} /></span><span><b>Safras</b><small>Cultura, cultivar, plantio, estádio e colheita por talhão</small></span></button>}
+        {gestor && <button onClick={() => ir('historico')}><span className="icone"><Icone n="grafico" t={26} /></span><span><b>Safras passadas</b><small>Produtividade, área e custo de anos anteriores, para comparar</small></span></button>}
         {gestor && <button onClick={() => ir('insumos')}><span className="icone"><Icone n="frasco" t={26} /></span><span><b>Insumos</b><small>Produtos, classe, unidade e estoque mínimo</small></span></button>}
         <button onClick={() => ir('equipe')}><span className="icone"><Icone n="pessoas" t={26} /></span><span><b>Equipe</b><small>Quem usa o app</small></span></button>
         <button onClick={() => ir('lixeira')}><span className="icone"><Icone n="lixo" t={26} /></span><span><b>Lixeira</b><small>Registros apagados e talhões arquivados</small></span></button>
@@ -39,6 +40,7 @@ export function Safras({ voltar, abrir }: { voltar: () => void; abrir: (talhaoId
       <button className="voltar" onClick={voltar}>‹ Mais</button>
       <h1>Safras</h1>
       {talhoes.length === 0 && <Aviso>Desenhe os talhões no Mapa primeiro.</Aviso>}
+      {talhoes.length > 0 && <button className="secundario" onClick={() => { location.hash = '#/historico' }}>Lançar safras passadas (todos os talhões de uma vez)</button>}
       {talhoes.map((t) => {
         const cs = ciclos.filter((c) => c.talhao_id === t.id).sort((a, b) => (b.data_plantio ?? b.safra).localeCompare(a.data_plantio ?? a.safra))
         return (
@@ -96,6 +98,8 @@ function FormCicloCampos({ talhaoId, talhaoNome, c, pronto }: { talhaoId: string
       producao: num(f.producao), unidade_producao: num(f.producao) != null ? (f.unidade_producao || (cana ? 't' : 'sc')) : null,
       meta_por_ha: num(f.meta_por_ha), corte_cana: cana ? num(f.corte_cana) : null, atr_kg_t: cana ? num(f.atr_kg_t) : null,
       status, observacao: f.observacao || null,
+      // Campos das safras passadas: só seguem quando existem (não somem ao ajustar a safra).
+      ...(c?.area_ha != null ? { area_ha: c.area_ha } : {}), ...(c?.custo_insumos_ha != null ? { custo_insumos_ha: c.custo_insumos_ha } : {}),
     }]), 'Safra salva')
     if (ok) pronto()
   }

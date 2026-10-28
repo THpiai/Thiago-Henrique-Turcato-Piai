@@ -496,6 +496,70 @@ try {
   ok(recebidos.filter((r) => r.tabela === 'insumos' && r.op === 'update' && r.linhas[0].excluido_em).length === 3, 'ao voltar o sinal, os apagados sobem para a lixeira do servidor')
   ok(recebidos.filter((r) => r.tabela === 'insumos' && !r.op).flatMap((r) => r.linhas).filter((l) => /olimpo/i.test(l.nome)).length === 1, 'servidor recebe o insumo uma vez só')
 
+  // Safras passadas: lançamento rápido de uma safra para todos os talhões, que sobe como safra colhida.
+  await pagina.evaluate(() => { location.hash = '#/historico' })
+  await espera('Safras passadas')
+  await pagina.getByLabel('Ano').selectOption('2025')
+  const linhaT = (nome) => pagina.locator('.lista-historico li', { hasText: nome })
+  await linhaT('T01 Sede').getByLabel('Produtividade (sc/ha)').fill('62')
+  await linhaT('T01 Sede').getByLabel('Insumos (R$/ha)').fill('2900')
+  await linhaT('T02 Baixada').getByLabel('Produtividade (sc/ha)').fill('58,5')
+  await linhaT('T02 Baixada').getByLabel('Área plantada (ha)').fill('60')
+  await linhaT('T02 Baixada').getByLabel('Cultivar').fill('TMG 2383')
+  await foto('17-safras-passadas')
+  await pagina.getByRole('button', { name: 'Salvar Soja 2025/26 (2 talhões)' }).click()
+  for (let i = 0; i < 50 && !recebidos.some((r) => r.tabela === 'ciclos' && r.linhas.some((l) => l.safra === 'Safra 2025/26')); i++) await pagina.waitForTimeout(200)
+  const hist = recebidos.find((r) => r.tabela === 'ciclos' && r.linhas.some((l) => l.safra === 'Safra 2025/26')).linhas
+  const h2 = hist.find((l) => l.talhao_id === 't2')
+  ok(hist.length === 2 && h2.status === 'Colhido' && h2.area_ha === 60 && h2.producao === 3510 && hist.find((l) => l.talhao_id === 't1').custo_insumos_ha === 2900 && hist.find((l) => l.talhao_id === 't1').area_ha === null,
+    'safra passada sobe colhida, com produção = sc/ha × área, área própria e custo informado')
+  await pagina.evaluate(() => { location.hash = '#/historico' })
+  await espera('Safras passadas')
+  await pagina.getByLabel('Ano').selectOption('2024')
+  await linhaT('T01 Sede').getByLabel('Produtividade (sc/ha)').fill('55')
+  await linhaT('T02 Baixada').getByLabel('Produtividade (sc/ha)').fill('60')
+  await pagina.getByRole('button', { name: 'Salvar Soja 2024/25 (2 talhões)' }).click()
+  await espera('Soja 2024/25 salva')
+  // Reabrir a mesma safra traz os números de volta (corrige, não duplica).
+  await pagina.evaluate(() => { location.hash = '#/historico' })
+  await pagina.getByLabel('Ano').selectOption('2025')
+  ok(await linhaT('T02 Baixada').getByLabel('Produtividade (sc/ha)').inputValue() === '58.5', 'safra passada reabre com os números lançados')
+
+  // Rendimento (painel BI) na Safra: cartões, barras por talhão, comparativo e período.
+  await pagina.setViewportSize({ width: 1366, height: 900 })
+  await pagina.locator('.abas').getByRole('button', { name: 'Safra', exact: true }).click()
+  await pagina.getByRole('tab', { name: /Soja 2025\/26/ }).click()
+  await pagina.getByRole('tab', { name: 'Rendimento' }).click()
+  await espera('Produtividade por talhão')
+  await espera('Comparativo de safras')
+  // T01 62 em 82,5 ha e T02 58,5 em 60 ha: média pesada 60,5.
+  ok(await pagina.locator('.kpis-rend').getByText('60,5').count() === 1, 'produtividade média pesada pela área')
+  ok(await pagina.locator('.kpis-rend').getByText(/▲ 6% vs 2024\/25/).count() === 1, 'cartão compara com a safra anterior')
+  ok(await pagina.locator('.colunas .coluna').count() === 2, 'comparativo mostra as duas safras de soja')
+  ok(await pagina.getByText(/Média regional 65/).count() > 0, 'linha da média regional (Conab) no gráfico')
+  await pagina.waitForTimeout(300)
+  await foto('18-rendimento-computador')
+  await pagina.setViewportSize({ width: 400, height: 860 })
+  await pagina.waitForTimeout(300)
+  await foto('18a-rendimento-celular')
+  await pagina.locator('.rendimento').screenshot({ path: `${SAIDA}/18b-rendimento-celular-inteiro.png` })
+
+  // Filtro de período: um só para o app todo, guardado até limpar.
+  await pagina.getByRole('tab', { name: /Soja 2026\/27/ }).click()
+  await pagina.getByRole('button', { name: 'Safra inteira' }).click()
+  await pagina.getByRole('dialog', { name: 'Escolher período' }).waitFor()
+  await foto('19-filtro-periodo')
+  await pagina.getByRole('button', { name: 'Últimos 30 dias' }).click()
+  await espera('só o que aconteceu no período')
+  await pagina.locator('.abas').getByRole('button', { name: /Início/ }).click()
+  await pagina.locator('.periodo-inicio h2', { hasText: 'Últimos 30 dias' }).waitFor()
+  ok(true, 'Início usa o mesmo período')
+  await pagina.waitForTimeout(400)
+  await foto('19a-inicio-periodo')
+  await pagina.getByRole('button', { name: 'Limpar período' }).click()
+  await espera('Nesta safra')
+  ok(true, 'limpar período volta para a safra inteira')
+
   // Celular de verdade (toque, zoom do navegador): o Mapa não pode virar "versão de computador" ao criar talhão.
   const cel = await nav.newContext({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo',
